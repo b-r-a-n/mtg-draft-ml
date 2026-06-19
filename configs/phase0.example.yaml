@@ -1,0 +1,27 @@
+# Phase 0 baseline config (example). Copy to phase0.yaml and edit.
+# See docs/roadmap.md Phase 0.
+
+data:
+  set: "FDN"                 # 17lands set code to train/eval on
+  event_type: "PremierDraft"
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  scryfall_bulk: "data/scryfall/oracle-cards.json"
+  subset_drafts: 50000       # null = use all; small subset for fast local iteration
+
+model:
+  kind: "onehot_mlp"         # phase 0 baseline; later: "content_pointer"
+  hidden: 512
+  layers: 3
+
+train:
+  device: "mps"              # mps | cpu | cuda
+  batch_size: 512
+  lr: 1.0e-3
+  epochs: 5
+  checkpoint_dir: "data/checkpoints"
+  checkpoint_every_steps: 1000
+
+eval:
+  metrics: ["top1", "mtpd", "per_pick_position"]
+  holdout_set: null          # set a *newer* set code here for the generalization test (Phase 1+)

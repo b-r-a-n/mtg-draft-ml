@@ -1,0 +1,29 @@
+[project]
+name = "mtg-draft-ml"
+version = "0.0.1"
+description = "Generalizing card-encoder models for MTG draft pick prediction"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2",            # MPS backend for Apple Silicon
+    "numpy",
+    "polars",                # streaming / lazy CSV -> parquet preprocessing
+    "pyarrow",               # parquet
+    "pandas",
+    "sentence-transformers", # frozen oracle-text encoder (card representation)
+    "requests",              # 17lands / Scryfall downloads
+    "pyyaml",                # configs
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "ipykernel"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100

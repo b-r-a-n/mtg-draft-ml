@@ -1,0 +1,30 @@
+# Data — never commit datasets / embeddings / model artifacts
+data/
+*.csv
+*.csv.gz
+*.parquet
+*.npy
+*.npz
+*.pt
+*.ckpt
+*.onnx
+embeddings_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# Env / secrets
+.env
+*.local
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
