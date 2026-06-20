@@ -125,6 +125,20 @@ convenience trade — turn days into hours for a few dollars — not a hard requ
 a streaming DataLoader (flat RAM regardless of dataset size); checkpoint frequently; `caffeinate`
 long runs.
 
-> **OPEN — remote infra for the data piece is the next discussion.** Where to store/stage the
-> 17lands CSVs and compact Parquet, how to run preprocessing, and what to rent for the Phase-3
-> pretrain. To be filled in.
+---
+
+## DD-007 — Data infra: Hugging Face hub + marketplace GPU, CPU/GPU decoupled
+**Decision:** store the compact Parquet + frozen-embedding table on **Hugging Face Datasets**
+(public, free, versioned, streamable) as the single canonical store; preprocess **set-by-set and
+idempotent** (initial full crunch on a cheap throwaway CPU box, incremental sets locally); run the
+Phase-3 pretrain on a **cheap GPU marketplace** (RunPod / Vast / Lambda), pulling data to local
+NVMe at pod start and checkpointing to a durable store.
+
+**Why:** chosen constraints are full historical corpus + cheap marketplace GPU + public-OK. HF is
+free and reproducible and removes egress cost; set-by-set preprocessing caps peak disk at one set
+(~1–4 GB) so it runs even on the Air; decoupling CPU preprocessing from GPU training avoids paying
+GPU rates for I/O. The model is tiny (~10M params) so **CPU data-loading, not GPU FLOPs, is the
+bottleneck** — favoring a vCPU-rich instance over a big GPU. Marketplace pods are ephemeral, hence
+frequent checkpoints + resumable training.
+
+**Full detail:** [data-infra.md](data-infra.md).
