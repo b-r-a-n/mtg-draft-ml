@@ -28,7 +28,7 @@ from ..cards.text_embed import get_embedder
 from ..data.dataset import DraftPickDataset, collate_picks
 from ..eval.metrics import PickEvaluator
 from ..models.draft_model import ContentDraftModel
-from .losses import pick_cross_entropy
+from .losses import pick_cross_entropy, win_rate_weights
 from .train import _midpack_acc, _save, draft_level_split, pick_device
 
 
@@ -58,6 +58,8 @@ def fit(
     n_sab: int = 1,
     loss: str = "ce",
     n_negatives: int = 512,
+    win_weight: str = "none",
+    win_beta: float = 0.3,
     epochs: int = 8,
     batch_size: int = 512,
     lr: float = 1e-3,
@@ -86,16 +88,19 @@ def fit(
                               n_heads=n_heads, n_sab=n_sab).to(dev)
     best = train_loop(model, train_dl, val_dl, dev, epochs=epochs, lr=lr,
                       checkpoint_dir=checkpoint_dir, checkpoint_every=checkpoint_every,
-                      n_cards=info["n_cards"], tag=manifest, loss=loss, n_negatives=n_negatives)
+                      n_cards=info["n_cards"], tag=manifest, loss=loss, n_negatives=n_negatives,
+                      win_weight=win_weight, win_beta=win_beta)
     return model, best
 
 
 def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, checkpoint_every,
-               n_cards, tag, ckpt_prefix="content", loss="ce", n_negatives=512):
+               n_cards, tag, ckpt_prefix="content", loss="ce", n_negatives=512,
+               win_weight="none", win_beta=0.3):
     """Shared epoch loop used by both single-set fit() and multi-set LOSO. Returns best metrics.
 
     loss="infonce" appends `n_negatives` shared global negatives to each example's pack logits
-    (contextual InfoNCE); loss="ce" is plain masked in-pack cross-entropy.
+    (contextual InfoNCE); loss="ce" is plain masked in-pack cross-entropy. win_weight!="none"
+    weights each example by its draft's event_match_wins (advantage-weighted BC — DD-004).
     """
     use_negs = loss == "infonce" and n_negatives > 0
     opt = torch.optim.Adam(model.parameters(), lr=lr)
@@ -110,7 +115,9 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
             neg = torch.randint(0, n_cards, (n_negatives,), device=dev) if use_negs else None
             logits = model(b["pool"].to(dev), b["pool_mask"].to(dev),
                            b["pack"].to(dev), b["pack_mask"].to(dev), neg_idx=neg)
-            loss_v = pick_cross_entropy(logits, b["label"].to(dev))
+            weights = (win_rate_weights(b["wins"].to(dev), scheme=win_weight, beta=win_beta)
+                       if win_weight != "none" else None)
+            loss_v = pick_cross_entropy(logits, b["label"].to(dev), weights=weights)
             opt.zero_grad()
             loss_v.backward()
             opt.step()
@@ -163,6 +170,8 @@ def main(argv=None):
     ap.add_argument("--n-sab", type=int, default=1)
     ap.add_argument("--loss", default="ce", choices=["ce", "infonce"])
     ap.add_argument("--n-negatives", type=int, default=512)
+    ap.add_argument("--win-weight", default="none", choices=["none", "linear", "exp"])
+    ap.add_argument("--win-beta", type=float, default=0.3)
     ap.add_argument("--epochs", type=int, default=8)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--lr", type=float, default=1e-3)
@@ -174,6 +183,7 @@ def main(argv=None):
     train(a.parquet, a.manifest, content=a.content, scryfall=a.scryfall, embedder=a.embedder,
           emb_dim=a.emb_dim, enc_hidden=a.enc_hidden, enc_layers=a.enc_layers, dropout=a.dropout,
           pool=a.pool, n_heads=a.n_heads, n_sab=a.n_sab, loss=a.loss, n_negatives=a.n_negatives,
+          win_weight=a.win_weight, win_beta=a.win_beta,
           epochs=a.epochs, batch_size=a.batch_size, lr=a.lr, val_frac=a.val_frac,
           device=a.device, checkpoint_dir=a.checkpoint_dir, seed=a.seed)
 

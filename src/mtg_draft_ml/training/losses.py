@@ -24,3 +24,25 @@ def pick_cross_entropy(logits: torch.Tensor, target: torch.Tensor,
         loss = loss * weights
         return loss.sum() / weights.sum().clamp_min(1e-8)
     return loss.mean()
+
+
+def win_rate_weights(wins: torch.Tensor, scheme: str = "exp", beta: float = 0.3,
+                     baseline: float = 3.0, min_wins: int = 0) -> torch.Tensor:
+    """Per-example weights from a draft's event_match_wins (advantage-weighted BC — DD-004).
+
+    scheme: 'none' (all 1), 'linear' (wins+1), or 'exp' (exp(beta*(wins-baseline))). `min_wins`
+    zeroes examples below a win threshold (a soft filter to high-win drafters). Higher wins ->
+    higher weight, biasing imitation toward decks that actually won.
+    """
+    w = wins.float()
+    if scheme == "none":
+        out = torch.ones_like(w)
+    elif scheme == "linear":
+        out = w + 1.0
+    elif scheme == "exp":
+        out = torch.exp(beta * (w - baseline))
+    else:
+        raise ValueError(f"unknown win-weight scheme: {scheme}")
+    if min_wins > 0:
+        out = out * (w >= min_wins).float()
+    return out

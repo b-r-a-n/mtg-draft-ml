@@ -18,6 +18,10 @@ _17L_TMPL = (
     "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/"
     "draft_data_public.{set_code}.{event_type}.csv.gz"
 )
+# 17lands aggregate card ratings (GIH WR, ALSA, IWD, ...) per set/format.
+# A date range is REQUIRED — without it the API returns all-zero counts / null win rates.
+_17L_RATINGS = ("https://www.17lands.com/card_ratings/data?expansion={set_code}"
+                "&format={event_type}&start_date={start}&end_date={end}")
 _SCRYFALL_BULK_INDEX = "https://api.scryfall.com/bulk-data"
 # Scryfall asks API clients to send a descriptive User-Agent + Accept.
 _SCRYFALL_HEADERS = {"User-Agent": "mtg-draft-ml/0.0 (research)", "Accept": "*/*"}
@@ -91,6 +95,37 @@ def download_scryfall_oracle(
         if f.read(1) != "[":  # sanity: it's a JSON array
             raise ValueError(f"unexpected Scryfall payload at {dest_path}")
     return dest_path
+
+
+def download_card_ratings(
+    set_code: str,
+    event_type: str = "PremierDraft",
+    dest_dir: str | pathlib.Path = "data/ratings",
+    start_date: str = "2019-01-01",
+    end_date: str = "2030-01-01",
+    force: bool = False,
+    timeout: int = 120,
+) -> pathlib.Path:
+    """Download 17lands aggregate card ratings (GIH WR / ALSA / IWD ...) for a set. Returns path.
+
+    The default wide date range aggregates the set's whole life. A range is required — the API
+    returns all-zero counts without one.
+    """
+    requests = _require_requests()
+    dest_dir = pathlib.Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    out = dest_dir / f"{set_code}.{event_type}.ratings.json"
+    if out.exists() and not force:
+        return out
+    url = _17L_RATINGS.format(set_code=set_code, event_type=event_type,
+                              start=start_date, end=end_date)
+    r = requests.get(url, headers={"User-Agent": "mtg-draft-ml/0.0 (research)"}, timeout=timeout)
+    r.raise_for_status()
+    data = r.json()  # validate it parses as JSON
+    if not isinstance(data, list) or not data:
+        raise ValueError(f"unexpected 17lands ratings payload for {set_code}")
+    out.write_text(r.text)
+    return out
 
 
 def _stream_to_file(requests, url, out, timeout, headers=None):

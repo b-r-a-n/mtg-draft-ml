@@ -44,8 +44,14 @@ def novel_card_mask(train_manifest: str, test_manifest: str) -> torch.Tensor:
 
 @torch.no_grad()
 def evaluate_on_set(model, parquet: str, device, novel_card: torch.Tensor | None = None,
-                    batch_size: int = 512) -> dict:
-    """Evaluate `model` (with its current content table) on a set's picks."""
+                    card_wr=None, batch_size: int = 512) -> dict:
+    """Evaluate `model` (with its current content table) on a set's picks.
+
+    If `card_wr` (per-card win rate, manifest-index order) is given, also report 'good-not-just-
+    human' WR-agreement metrics (does the model take the highest-WR card in the pack).
+    """
+    from .winrate import WRMeter
+
     model.eval()
     ds = DraftPickDataset(parquet)
     dl = DataLoader(ds, batch_size=batch_size, shuffle=False, collate_fn=collate_picks)
@@ -55,11 +61,15 @@ def evaluate_on_set(model, parquet: str, device, novel_card: torch.Tensor | None
     n = 0
     if novel_card is not None:
         novel_card = novel_card.to(device)
+    wr_meter = None
+    if card_wr is not None:
+        card_wr = (card_wr if torch.is_tensor(card_wr) else torch.as_tensor(card_wr)).to(device)
+        wr_meter = WRMeter()
     for b in dl:
         pack_mask = b["pack_mask"].to(device)
         label = b["label"].to(device)
-        logits = model(b["pool"].to(device), b["pool_mask"].to(device),
-                       b["pack"].to(device), pack_mask)
+        pack = b["pack"].to(device)
+        logits = model(b["pool"].to(device), b["pool_mask"].to(device), pack, pack_mask)
         pick_number = b["pick_number"]
         ev.update(logits, label, pack_mask, pick_number)
         sizes = pack_mask.sum(dim=-1).clamp_min(1)
@@ -69,6 +79,8 @@ def evaluate_on_set(model, parquet: str, device, novel_card: torch.Tensor | None
             sel = novel_card[b["pick_idx"].to(device)]
             if bool(sel.any()):
                 ev_novel.update(logits[sel], label[sel], pack_mask[sel], pick_number[sel.cpu()])
+        if wr_meter is not None:
+            wr_meter.update(logits, label, card_wr[pack], pack_mask)
     out = ev.compute()
     out["random_floor"] = floor_sum / max(n, 1)
     if novel_card is not None:
@@ -76,6 +88,8 @@ def evaluate_on_set(model, parquet: str, device, novel_card: torch.Tensor | None
         out["novel_top1"] = nm["top1"]
         out["novel_mtpd"] = nm["mtpd"]
         out["n_novel"] = nm["n"]
+    if wr_meter is not None:
+        out.update(wr_meter.compute())
     return out
 
 
@@ -92,6 +106,7 @@ def run_loso(
     emb_dim: int = 256, enc_hidden: int = 512, enc_layers: int = 3, dropout: float = 0.1,
     pool: str = "mean", n_heads: int = 4, n_sab: int = 1,
     loss: str = "ce", n_negatives: int = 512,
+    win_weight: str = "none", win_beta: float = 0.3, holdout_ratings: str | None = None,
     epochs: int = 10, batch_size: int = 512, lr: float = 1e-3, val_frac: float = 0.05,
     device: str = "auto", checkpoint_dir: str = "data/checkpoints", seed: int = 0,
     out_json: str | None = None,
@@ -130,16 +145,20 @@ def run_loso(
     best = train_loop(model, train_dl, val_dl, dev, epochs=epochs, lr=lr,
                       checkpoint_dir=checkpoint_dir, checkpoint_every=0,
                       n_cards=ginfo["n_cards"], tag="loso", ckpt_prefix="loso",
-                      loss=loss, n_negatives=n_negatives)
+                      loss=loss, n_negatives=n_negatives, win_weight=win_weight, win_beta=win_beta)
 
     novel = novel_mask_for_holdout(holdout_spec["manifest"], set(key_to_idx))
     frac_novel = float(novel.float().mean())
+    card_wr = None
+    if holdout_ratings is not None:
+        from .winrate import align_winrates
+        card_wr = align_winrates(holdout_spec["manifest"], holdout_ratings)
     model.set_content(torch.from_numpy(hmat))
-    cross = evaluate_on_set(model, holdout_spec["parquet"], dev, novel_card=novel)
+    cross = evaluate_on_set(model, holdout_spec["parquet"], dev, novel_card=novel, card_wr=card_wr)
 
     results = {
         "mode": "loso", "embedder": embedder, "text": text,
-        "pool": pool, "loss": loss,
+        "pool": pool, "loss": loss, "win_weight": win_weight,
         "n_train_sets": len(train_specs), "train_cards": ginfo["n_cards"],
         "train_in_set_top1": best["top1"],
         "holdout": {"parquet": holdout_spec["parquet"], "n_cards": hinfo["n_cards"],
@@ -164,6 +183,11 @@ def _print_loso(r: dict):
           f"n_novel={h.get('n_novel', 0)}  ({h['frac_cards_novel']*100:.0f}% of cards novel)")
     print(f"  random floor          : {h['random_floor']:.4f}   "
           f"(published: ~0.22 chance, ~0.55 pretrained — Bertram et al. 2024)")
+    if "wr_agreement_model" in h:
+        print(f"  WR-agreement model={h['wr_agreement_model']:.4f}  "
+              f"human={h['wr_agreement_human']:.4f}  (takes highest-GIH-WR card in pack)")
+        print(f"  avg pick GIH-WR model={h['avg_pick_wr_model']:.4f}  "
+              f"human={h['avg_pick_wr_human']:.4f}  (n={h['n_wr_packs']})")
 
 
 def run_experiment(
@@ -233,6 +257,9 @@ def main(argv=None):
     ap.add_argument("--n-sab", type=int, default=1)
     ap.add_argument("--loss", default="ce", choices=["ce", "infonce"])
     ap.add_argument("--n-negatives", type=int, default=512)
+    ap.add_argument("--win-weight", default="none", choices=["none", "linear", "exp"])
+    ap.add_argument("--win-beta", type=float, default=0.3)
+    ap.add_argument("--holdout-ratings", default=None, help="17lands ratings JSON for WR-agreement")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--device", default="auto")
@@ -241,7 +268,8 @@ def main(argv=None):
     run_loso(
         [_spec(t) for t in a.train], _spec(a.holdout),
         embedder=a.embedder, text=not a.no_text, pool=a.pool, n_heads=a.n_heads, n_sab=a.n_sab,
-        loss=a.loss, n_negatives=a.n_negatives, out_json=a.out_json,
+        loss=a.loss, n_negatives=a.n_negatives, win_weight=a.win_weight, win_beta=a.win_beta,
+        holdout_ratings=a.holdout_ratings, out_json=a.out_json,
         epochs=a.epochs, batch_size=a.batch_size, device=a.device,
     )
 
