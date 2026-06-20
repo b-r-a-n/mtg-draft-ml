@@ -85,12 +85,44 @@ They partly work against each other — win-weighting concentrates on winning dr
 data diversity that drives aux's generalization; aux broadens the representation, diluting
 win-weighting's targeted WR push. **Don't combine; pick the lever that matches the goal.**
 
+## Pick-time quality blend (the lever that finally moves WR-agreement)
+
+At draft time, blend the aux head's **predicted** quality into the pick:
+`logit = pointer_logit + α · predicted_quality(card)`. α is a post-training knob (no retraining),
+and it uses the *prediction*, so it works on unseen cards (no ratings needed at draft time).
+Sweep on held-out DSK (aux-WR model, λ=1.0):
+
+| α | held-out top-1 | novel-only | WR-agreement | avg pick WR |
+|---|---|---|---|---|
+| 0.0 | **0.5740** | 0.5576 | 0.2552 | 0.5466 |
+| 0.5 | 0.5716 | 0.5544 | 0.2636 | 0.5476 |
+| 1.0 | 0.5635 | 0.5457 | 0.2704 | 0.5482 |
+| 2.0 | 0.5421 | 0.5232 | 0.2814 | 0.5493 |
+| 4.0 | 0.4987 | 0.4777 | 0.2961 | 0.5506 |
+| 8.0 | 0.4426 | 0.4190 | **0.3117** | 0.5516 |
+| *human reference* | — | — | 0.2990 | 0.5509 |
+
+**Findings:**
+1. **This is the first lever that substantially and monotonically raises WR-agreement** (0.255 →
+   0.312) — and it can **match humans at α≈4** (0.296 vs 0.299) and **exceed them at α≈8** (0.312 >
+   0.299; avg pick WR 0.5516 > human 0.5509). The aux head and win-weighting alone never moved it.
+2. **No free lunch — it's a frontier, not a strict win.** Every step toward winning cards costs
+   human top-1 (0.574 → 0.443), because "highest-GIH-WR card" and "human pick" are *different
+   objectives* (humans themselves only agree ~30%). The blend lets you *choose where on that
+   frontier to sit*.
+3. **The blend dominates win-weighting.** At α=0.5 it gives WR-agreement 0.2636 at top-1 0.5716 —
+   better on **both** axes than win-weighting (0.2632 at 0.5623), because it doesn't shrink data
+   diversity. Prefer the blend over win-weighting for the "good, not just human" axis.
+4. **α is a deployable dial** ("draft aggressiveness"): low α = human-like; high α = win-rate-greedy.
+
 ## Recommendation & next steps
 
 - **Adopt the aux-WR head (λ≈0.5–1.0)** — it's the current best model (held-out 0.574) and stacks
   with the Set Transformer. Optionally combine with gentle win-weighting (`exp β≈0.4`).
-- To actually move *WR-agreement* (steer the policy, not just the representation): try a
-  pick-time blend of the aux quality score with the pointer logits, or **soft-label distillation**
-  from a win-rate-aware teacher (DD-004).
-- Use a less-confounded target (IWD `drawn_improvement_win_rate`, or a deck-adjusted WR).
-- Tighten with multiple seeds + rotating holdout.
+- For the "good, not just human" axis, use the **pick-time quality blend** (it dominates
+  win-weighting and is a tunable dial that can match/exceed humans). Gentle α≈0.5 is a near-free
+  WR boost; raise α to trade human-likeness for win-rate-seeking.
+- Use a less-confounded target (IWD `drawn_improvement_win_rate`, or a deck-adjusted WR) — should
+  make the blended picks "better" in a less control-biased sense.
+- Tighten with multiple seeds + rotating holdout; **soft-label distillation** from a win-rate-aware
+  teacher (DD-004) remains the heavier alternative.

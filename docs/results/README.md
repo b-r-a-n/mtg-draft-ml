@@ -51,6 +51,11 @@ bigger win: held-out 0.563 → **0.574** (best), novel-only 0.546 → 0.558 — 
 *generalization*, not WR-agreement (the shared encoder gets better at judging unseen cards, rather
 than re-steering the pick policy toward the top-WR card).
 
+The **pick-time quality blend** (`logit += α·predicted_quality`) is the lever that *does* move
+WR-agreement — a tunable dial that matches humans at α≈4 and exceeds them at α≈8 (0.312 > 0.299),
+trading human top-1 for win-rate-seeking. It dominates win-weighting and works on unseen cards
+(uses the head's prediction). Use α≈0 for best generalization, raise α to be "good, not just human".
+
 ## Detailed docs
 
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the
