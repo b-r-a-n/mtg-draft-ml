@@ -157,12 +157,17 @@ uv run python -m mtg_draft_ml.eval.generalization \
 ```
 
 Repeat `--train` for multiple sets to run **leave-one-set-out** (train on many, hold one out).
+Add `--pool set_transformer` (Phase 2, recommended) and `--loss {ce,infonce}`.
 
 **Results (held-out DSK, 98% novel cards):** single-set BLB→DSK ≈ **0.44–0.48**; multi-set
 (BLB+OTJ+WOE+MKM → DSK) reaches **0.552** with the MiniLM text encoder — matching the published
 ~0.55 bar, vs **0.233** random floor. Notably the encoder ranking *flips*: semantic text is worst
 single-set but best multi-set (it needs set diversity to pay off). Full tables + ablation:
 [docs/results/phase1-generalization.md](docs/results/phase1-generalization.md).
+
+**Phase 2:** the Set Transformer pool encoder lifts held-out to **0.563** (best); global-negative
+InfoNCE *hurt* — the pack is the correct negative set, so `loss=ce` (≡ in-pack InfoNCE) wins. See
+[docs/results/phase2-set-transformer-infonce.md](docs/results/phase2-set-transformer-infonce.md).
 
 See [docs/roadmap.md](docs/roadmap.md) for remaining Phase 1 work (multi-set training, feature
 standardization) and [docs/data-infra.md](docs/data-infra.md) for the storage plan.
