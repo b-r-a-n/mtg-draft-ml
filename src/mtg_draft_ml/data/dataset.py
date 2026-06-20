@@ -78,6 +78,8 @@ def collate_picks(batch: list[dict], pad_value: int = 0):
     pool_mask = torch.zeros((B, L), dtype=torch.bool)
     label = torch.empty(B, dtype=torch.long)
     pick_idx = torch.empty(B, dtype=torch.long)
+    pick_number = torch.empty(B, dtype=torch.long)
+    pack_number = torch.empty(B, dtype=torch.long)
     wins = torch.empty(B, dtype=torch.long)
 
     for i, b in enumerate(batch):
@@ -90,12 +92,15 @@ def collate_picks(batch: list[dict], pad_value: int = 0):
             pool_mask[i, : len(pl)] = True
         label[i] = b["pick_pos"]
         pick_idx[i] = b["pick_idx"]
+        pick_number[i] = b["pick_number"]
+        pack_number[i] = b["pack_number"]
         wins[i] = b["event_match_wins"]
 
     return {
         "pack": pack, "pack_mask": pack_mask,
         "pool": pool, "pool_mask": pool_mask,
-        "label": label, "pick_idx": pick_idx, "wins": wins,
+        "label": label, "pick_idx": pick_idx,
+        "pick_number": pick_number, "pack_number": pack_number, "wins": wins,
     }
 
 

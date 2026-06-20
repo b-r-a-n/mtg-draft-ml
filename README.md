@@ -116,8 +116,32 @@ uv run python -m mtg_draft_ml.data.hf pull --repo <user>/mtg-draft --revision <s
 
 Pin `--hf-revision` / `--revision` for reproducible train/val and leave-one-set-out splits.
 
-See [docs/roadmap.md](docs/roadmap.md) for Phase 1 (content encoder + new-set generalization)
-and [docs/data-infra.md](docs/data-infra.md) for the full storage plan.
+## Train the Phase-1 content model
+
+Content card encoder (Scryfall structured features + frozen oracle-text embedding) → masked
+mean-pool over the pool → pointer head over the pack. ID-free, so it can score **unseen** cards.
+
+```bash
+# build the per-set content matrix (hashing embedder = no heavy deps; for real use pass a model)
+uv run python -m mtg_draft_ml.cards.content_table \
+    --manifest data/processed/manifests/FDN.PremierDraft.json \
+    --scryfall data/scryfall/oracle-cards.json \
+    --out data/processed/cards/FDN.content.npy --embedder hash
+
+# train the content model
+uv run python -m mtg_draft_ml.training.train_content \
+    --parquet data/processed/draft/FDN.PremierDraft.parquet \
+    --manifest data/processed/manifests/FDN.PremierDraft.json \
+    --content data/processed/cards/FDN.content.npy --epochs 8
+```
+
+Use `--embedder all-MiniLM-L6-v2` (needs `".[embeddings]"`) for the real frozen text encoder —
+the hashing embedder is for fast iteration only and is **not** semantically meaningful, so don't
+judge generalization with it. On a single in-set sample the content model only matches the one-hot
+baseline; its advantage is cross-set generalization (the leave-one-set-out test — next).
+
+See [docs/roadmap.md](docs/roadmap.md) for the remaining Phase 1 work (new-set generalization
+benchmark) and [docs/data-infra.md](docs/data-infra.md) for the full storage plan.
 
 ## Hardware note
 
