@@ -1,9 +1,10 @@
-"""Phase-1 training loop for the content card-encoder model.
+"""Phase-1 training for the content card-encoder model.
 
 See docs/roadmap.md Phase 1; docs/architecture.md.
 
-Builds (or loads) the per-set content feature matrix, then trains the ContentDraftModel with the
-pointer head + masked cross-entropy. Reuses device/split/checkpoint helpers from train.py.
+`fit()` builds the model from a content matrix and trains it, returning the trained model (used by
+the generalization benchmark). `train()` is the CLI path: it resolves the content matrix (prebuilt
+.npy or built on the fly from Scryfall) and calls `fit()`.
 
 Example (hashing text embedder, no heavy deps):
     uv run python -m mtg_draft_ml.training.train_content \\
@@ -16,7 +17,9 @@ Use --embedder all-MiniLM-L6-v2 (needs the [embeddings] extra) for the real text
 from __future__ import annotations
 
 import argparse
+import pathlib
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, Subset
 
@@ -40,12 +43,12 @@ def evaluate(model, loader, device) -> dict:
     return ev.compute()
 
 
-def train(
+def fit(
     parquet: str,
     manifest: str,
-    content: str | None = None,
-    scryfall: str | None = None,
-    embedder: str = "hash",
+    matrix: np.ndarray,
+    info: dict,
+    *,
     emb_dim: int = 256,
     enc_hidden: int = 512,
     enc_layers: int = 3,
@@ -59,18 +62,11 @@ def train(
     checkpoint_every: int = 2000,
     num_workers: int = 0,
     seed: int = 0,
-) -> dict:
+):
+    """Train a ContentDraftModel on `matrix`. Returns (model, best_val_metrics)."""
     torch.manual_seed(seed)
     dev = pick_device(device)
-
-    if content is not None:
-        matrix, info = load_content_matrix(content)
-    elif scryfall is not None:
-        matrix, info = build_content_matrix(manifest, scryfall, embedder=get_embedder(embedder))
-    else:
-        raise ValueError("provide --content (prebuilt .npy) or --scryfall (to build it)")
-    print(f"device={dev}  content matrix {matrix.shape}  {info}")
-    content_t = torch.from_numpy(matrix)
+    print(f"device={dev}  content matrix {tuple(matrix.shape)}  {info}")
 
     ds = DraftPickDataset(parquet)
     train_idx, val_idx = draft_level_split(parquet, val_frac, seed)
@@ -80,11 +76,10 @@ def train(
                         collate_fn=collate_picks, num_workers=num_workers)
     print(f"picks: {len(train_idx)} train / {len(val_idx)} val")
 
-    model = ContentDraftModel(content_t, emb_dim=emb_dim, enc_hidden=enc_hidden,
+    model = ContentDraftModel(torch.from_numpy(matrix), emb_dim=emb_dim, enc_hidden=enc_hidden,
                               enc_layers=enc_layers, dropout=dropout).to(dev)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
-    from pathlib import Path
-    ckpt_dir = Path(checkpoint_dir)
+    ckpt_dir = pathlib.Path(checkpoint_dir)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     step = 0
@@ -115,6 +110,20 @@ def train(
             _save(ckpt_dir / "content_best.pt", model, opt, step, epoch, info["n_cards"], manifest)
 
     print(f"best val_top1={best['top1']:.4f}")
+    return model, best
+
+
+def _resolve_matrix(manifest, content, scryfall, embedder):
+    if content is not None:
+        return load_content_matrix(content)
+    if scryfall is not None:
+        return build_content_matrix(manifest, scryfall, embedder=get_embedder(embedder))
+    raise ValueError("provide content (prebuilt .npy) or scryfall (to build the matrix)")
+
+
+def train(parquet, manifest, content=None, scryfall=None, embedder="hash", **fit_kwargs) -> dict:
+    matrix, info = _resolve_matrix(manifest, content, scryfall, embedder)
+    _, best = fit(parquet, manifest, matrix, info, **fit_kwargs)
     return best
 
 

@@ -140,8 +140,28 @@ the hashing embedder is for fast iteration only and is **not** semantically mean
 judge generalization with it. On a single in-set sample the content model only matches the one-hot
 baseline; its advantage is cross-set generalization (the leave-one-set-out test — next).
 
-See [docs/roadmap.md](docs/roadmap.md) for the remaining Phase 1 work (new-set generalization
-benchmark) and [docs/data-infra.md](docs/data-infra.md) for the full storage plan.
+## Run the new-set generalization benchmark
+
+Train on one set, evaluate zero-shot on another (swapping in its card table) — the metric that
+justifies the content encoder. The fixed-vocabulary baseline can't be run cross-set at all.
+
+```bash
+uv run python -m mtg_draft_ml.eval.generalization \
+    --train-parquet data/processed/draft/BLB.PremierDraft.parquet \
+    --train-manifest data/processed/manifests/BLB.PremierDraft.json \
+    --train-scryfall data/scryfall/blb.json \
+    --test-parquet  data/processed/draft/DSK.PremierDraft.parquet \
+    --test-manifest data/processed/manifests/DSK.PremierDraft.json \
+    --test-scryfall data/scryfall/dsk.json \
+    --embedder all-MiniLM-L6-v2 --epochs 12 --out-json results.json
+```
+
+**First result (BLB → DSK, 98% novel cards):** cross-set top-1 ≈ **0.44–0.48** vs **0.233** random
+floor — ~2× the floor, in line with the published ~0.43 one-set bar. Full table and the (surprising)
+encoder ablation: [docs/results/phase1-generalization.md](docs/results/phase1-generalization.md).
+
+See [docs/roadmap.md](docs/roadmap.md) for remaining Phase 1 work (multi-set training, feature
+standardization) and [docs/data-infra.md](docs/data-infra.md) for the storage plan.
 
 ## Hardware note
 
