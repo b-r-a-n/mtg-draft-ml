@@ -64,8 +64,14 @@ flagship 0.574 was DSK-specific (an easy holdout) — the honest rotated number 
 
 **Feature standardization A/B: it *hurts*** (0.5405 → 0.5264, every holdout down ~1–2 pt) — z-scoring
 the already-unit-norm text block amplifies noise dims, and the encoder's LayerNorm already handles
-raw feature scale. **Not adopted** (kept as an off-by-default `--standardize` flag). Recipe locked
-for the GPU run: content encoder → Set Transformer → in-pack CE + aux-WR (raw features).
+raw feature scale. **Not adopted** (kept as an off-by-default `--standardize` flag).
+
+**Data-scaling curve (holdout DSK): saturates at ~3–4 sets.** 1→2 sets +9.6 pt, but 4→7 sets
+(nearly 2× data) only +0.15 pt — within noise. The small model is **data-saturated, not
+data-limited**, so the **full-corpus GPU run is NOT justified for accuracy** — train the deployable
+model on the laptop on ~4–7 diverse sets. The only remaining accuracy lever is model *capacity*
+(scaled with data), not data alone. Recipe locked: content encoder → Set Transformer → in-pack CE +
+aux-WR (raw features).
 
 ## Detailed docs
 

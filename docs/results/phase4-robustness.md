@@ -54,11 +54,35 @@ there was nothing to fix. The Phase-1 "unstandardized features" caveat turns out
 alone) might behave differently — but given the encoder's LayerNorm already normalizes internally,
 the expected upside is small. Not pursuing it unless a reason appears.
 
-## Decision (locks the recipe for the GPU run)
+## Data-scaling curve — does more data help? (No, at this model size)
 
-- **Recipe:** content encoder → Set Transformer pool encoder → pointer head → in-pack CE +
-  aux-WR head (λ≈1.0), **raw (un-standardized) features**, optional pick-time quality blend for the
-  "good, not just human" dial.
-- **Expected generalization:** ~**0.54 ± 0.02** rotated (vs 0.233 floor, ~0.55 published bar);
-  stable across seeds.
-- The standardization knob stays in the code (`--standardize`) but **off by default**.
+Fix holdout = DSK and the best recipe; train on the first N of [BLB, OTJ, WOE, MKM, LCI, MOM, MH3].
+Single seed (`scripts/scaling_curve.py`).
+
+| n_sets | train picks | train cards | held-out top-1 |
+|---|---|---|---|
+| 1 | 60k | 276 | 0.4668 |
+| 2 | 120k | 652 | 0.5628 |
+| 3 | 180k | 975 | 0.5709 |
+| 4 | 240k | 1294 | 0.5744 |
+| 5 | 300k | 1580 | 0.5705 |
+| 6 | 360k | 1920 | 0.5743 |
+| 7 | 420k | 2240 | 0.5759 |
+
+**Saturates at ~3–4 sets.** The only large gains are 1→2 (+9.6 pt) and 2→3 (+0.8); from 4→7 sets
+(nearly 2× the data, +950 cards) accuracy moves **+0.15 pt — within noise.** The small model is
+**data-saturated, not data-limited** — it lacks the capacity to exploit more data.
+
+## Decision — the GPU full-corpus run is NOT justified (for accuracy)
+
+- **More data won't help at this (deployable, ~10M-param) model size.** The full-corpus GPU run
+  would cost time/money for ~0 accuracy gain. **Train the deployable model on the laptop** on a
+  handful of diverse recent sets (≈4–7) with the locked recipe.
+- **Locked recipe:** content encoder → Set Transformer → pointer head → in-pack CE + aux-WR head
+  (λ≈1.0), **raw features**, optional pick-time quality blend. Generalization ~**0.54–0.57** to an
+  unseen set (vs 0.233 floor, ~0.55 published bar); stable across seeds.
+- **The only lever left for *more* accuracy is model capacity, not data** — and you'd have to scale
+  capacity *and* data together (a bigger, costlier model with uncertain upside, and we're already at
+  the published bar). A cheap capacity probe (wider/deeper at 7 sets) is the next thing to try *if*
+  squeezing accuracy matters; otherwise we're done.
+- Standardization knob stays in code (`--standardize`) but off by default.
