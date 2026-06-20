@@ -15,7 +15,7 @@ import pathlib
 import pyarrow.parquet as pq
 
 _PICK_COLUMNS = ["pack_indices", "pool_indices", "pool_counts", "pick_pos", "pick_idx",
-                 "event_match_wins"]
+                 "pick_number", "pack_number", "event_match_wins"]
 
 
 def _require_torch():
@@ -50,6 +50,8 @@ class DraftPickDataset:
             "pool_counts": self._cols["pool_counts"][i].as_py(),
             "pick_pos": self._cols["pick_pos"][i].as_py(),
             "pick_idx": self._cols["pick_idx"][i].as_py(),
+            "pick_number": self._cols["pick_number"][i].as_py(),
+            "pack_number": self._cols["pack_number"][i].as_py(),
             "event_match_wins": self._cols["event_match_wins"][i].as_py(),
         }
 
@@ -104,3 +106,34 @@ def pool_multihot(pool_indices, pool_counts, n_cards: int):
     for idx, cnt in zip(pool_indices, pool_counts):
         v[idx] = float(cnt)
     return v
+
+
+def collate_onehot(batch: list[dict], n_cards: int):
+    """Collate for the Phase-0 one-hot MLP baseline (full-vocab tensors).
+
+    Returns:
+      pool[B, n_cards] float (collection counts),
+      pack[B, n_cards] bool (cards available this pick),
+      label[B] long (global index of the picked card),
+      pick_number[B], pack_number[B] long, wins[B] long.
+    Use with functools.partial(collate_onehot, n_cards=N) as a DataLoader collate_fn.
+    """
+    torch = _require_torch()
+    B = len(batch)
+    pool = torch.zeros((B, n_cards), dtype=torch.float32)
+    pack = torch.zeros((B, n_cards), dtype=torch.bool)
+    label = torch.empty(B, dtype=torch.long)
+    pick_number = torch.empty(B, dtype=torch.long)
+    pack_number = torch.empty(B, dtype=torch.long)
+    wins = torch.empty(B, dtype=torch.long)
+    for i, b in enumerate(batch):
+        for idx, cnt in zip(b["pool_indices"], b["pool_counts"]):
+            pool[i, idx] = float(cnt)
+        if b["pack_indices"]:
+            pack[i, b["pack_indices"]] = True
+        label[i] = b["pick_idx"]
+        pick_number[i] = b["pick_number"]
+        pack_number[i] = b["pack_number"]
+        wins[i] = b["event_match_wins"]
+    return {"pool": pool, "pack": pack, "label": label,
+            "pick_number": pick_number, "pack_number": pack_number, "wins": wins}

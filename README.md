@@ -77,7 +77,24 @@ ds = DraftPickDataset("data/processed/draft/FDN.PremierDraft.parquet")
 dl = DataLoader(ds, batch_size=512, shuffle=True, collate_fn=collate_picks)
 ```
 
-See [docs/roadmap.md](docs/roadmap.md) Phase 0 for the next step (baseline model + eval harness).
+## Train the Phase-0 baseline
+
+One-hot MLP over the collection, scoring the pack with a masked softmax (Statistical-Drafting /
+Draftsim style). Train/val split is by draft (no same-draft leakage); runs on MPS automatically.
+
+```bash
+uv run python -m mtg_draft_ml.training.train \
+    --parquet data/processed/draft/FDN.PremierDraft.parquet \
+    --manifest data/processed/manifests/FDN.PremierDraft.json \
+    --epochs 8 --batch-size 512
+```
+
+Reports per epoch: `val_top1`, `val_mtpd` (mean pick distance), and `mid-pack_top1` (picks 3–9,
+the hard synergy region). Checkpoints to `data/checkpoints/{last,best}.pt`. This is the
+fixed-vocabulary baseline that **cannot** generalize to unseen cards — Phase 1 replaces it with
+the content card encoder.
+
+See [docs/roadmap.md](docs/roadmap.md) for Phase 1 (content encoder + new-set generalization).
 
 ## Hardware note
 
