@@ -70,6 +70,21 @@ for the **training** sets; held-out unchanged.
    signal improves the representation diffusely rather than re-pointing the policy at the top-WR
    card — and GIH-WR-best is a noisy, confounded target anyway.
 
+## Do the two levers stack? (no)
+
+| config (set_transformer + ce) | held-out top-1 | WR-agreement | avg pick WR |
+|---|---|---|---|
+| baseline | 0.5626 | 0.2553 | 0.5465 |
+| win-weight only (exp β=0.4) | 0.5623 | **0.2632** | 0.5471 |
+| aux-WR only (λ=1.0) | **0.5744** | 0.2547 | 0.5467 |
+| aux-WR + win-weight | 0.5677 | 0.2593 | 0.5472 |
+
+Combining is **Pareto-interior**: it beats baseline on both axes but is *worse than each lever on
+that lever's own strength* (top-1 0.5677 < aux's 0.5744; WR-agreement 0.2593 < win-weight's 0.2632).
+They partly work against each other — win-weighting concentrates on winning drafts, shrinking the
+data diversity that drives aux's generalization; aux broadens the representation, diluting
+win-weighting's targeted WR push. **Don't combine; pick the lever that matches the goal.**
+
 ## Recommendation & next steps
 
 - **Adopt the aux-WR head (λ≈0.5–1.0)** — it's the current best model (held-out 0.574) and stacks
