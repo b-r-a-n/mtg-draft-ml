@@ -56,12 +56,24 @@ WR-agreement — a tunable dial that matches humans at α≈4 and exceeds them a
 trading human top-1 for win-rate-seeking. It dominates win-weighting and works on unseen cards
 (uses the head's prediction). Use α≈0 for best generalization, raise α to be "good, not just human".
 
+## Phase 4 — robustness (seeds × rotating holdout)
+
+Best config across **3 seeds × 5 rotating holdouts** (15 runs): **held-out top-1 = 0.5405 ± 0.0229.**
+Seeds are stable (±0.001–0.003); the spread is *which set* is held out (range 0.510–0.575). The
+flagship 0.574 was DSK-specific (an easy holdout) — the honest rotated number is **~0.54**.
+
+**Feature standardization A/B: it *hurts*** (0.5405 → 0.5264, every holdout down ~1–2 pt) — z-scoring
+the already-unit-norm text block amplifies noise dims, and the encoder's LayerNorm already handles
+raw feature scale. **Not adopted** (kept as an off-by-default `--standardize` flag). Recipe locked
+for the GPU run: content encoder → Set Transformer → in-pack CE + aux-WR (raw features).
+
 ## Detailed docs
 
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the
   encoder ablation (features / hashing / MiniLM) and why text needs set diversity.
 - [phase2-set-transformer-infonce.md](phase2-set-transformer-infonce.md) — full Phase 2 analysis.
-- [phase3-winrate.md](phase3-winrate.md) — win-rate weighting sweep + WR-agreement metric.
+- [phase3-winrate.md](phase3-winrate.md) — win-rate weighting + aux-WR head + pick-time blend.
+- [phase4-robustness.md](phase4-robustness.md) — seeds × rotating holdout; standardization A/B.
 
 ## Shared caveats
 
