@@ -169,6 +169,10 @@ single-set but best multi-set (it needs set diversity to pay off). Full tables +
 InfoNCE *hurt* — the pack is the correct negative set, so `loss=ce` (≡ in-pack InfoNCE) wins. See
 [docs/results/phase2-set-transformer-infonce.md](docs/results/phase2-set-transformer-infonce.md).
 
+**Phase 3 (good, not just human):** gentle win-rate weighting (`--win-weight exp --win-beta 0.4`)
+raises WR-agreement (taking the highest-GIH-WR card) at no top-1 cost; add `--holdout-ratings` to
+measure it. See [docs/results/phase3-winrate.md](docs/results/phase3-winrate.md).
+
 See [docs/roadmap.md](docs/roadmap.md) for remaining Phase 1 work (multi-set training, feature
 standardization) and [docs/data-infra.md](docs/data-infra.md) for the storage plan.
 

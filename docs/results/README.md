@@ -12,9 +12,11 @@ bar** (Bertram et al. 2024). All runs: MPS, sampled 17lands data, single seed un
 | 1 | content encoder, MiniLM | BLB | DSK | 0.437 | single-set; text *underperforms* features here |
 | 1 | content encoder, MiniLM, **LOSO** | BLB+OTJ+WOE+MKM | DSK | 0.552 | multi-set — matches the ~0.55 bar |
 | 2 | + **Set Transformer** (in-pack CE) | BLB+OTJ+WOE+MKM | DSK | **0.563** | **current best** |
+| 3 | + win-weighting (exp β=0.4) | BLB+OTJ+WOE+MKM | DSK | 0.562 | top-1 flat; WR-agreement ↑ |
 
 Each step is a real, measured improvement on a ~98%-novel held-out set. The Phase-0 baseline is
 omitted from the cross-set column because a fixed-vocabulary model has no parameters for unseen cards.
+Phase 3 optimizes *pick quality* (WR-agreement), not human top-1 — see below.
 
 ## Phase 2 ablation (Set Transformer × loss) — held-out DSK
 
@@ -30,11 +32,25 @@ omitted from the cross-set column because a fixed-vocabulary model has no parame
   (≡ in-pack InfoNCE) is the right objective; diluting with random negatives wrecks within-pack
   ranking. Recommended config: **`set_transformer` + `ce`**.
 
+## Phase 3 — win-rate weighting (WR-agreement, held-out DSK)
+
+| win-weight | held-out top-1 | WR-agreement (model) | avg pick GIH-WR |
+|---|---|---|---|
+| none | 0.5626 | 0.2553 | 0.5465 |
+| **exp β=0.4** | 0.5623 | **0.2632** | 0.5471 |
+| exp β=0.8 (too strong) | 0.5393 | 0.2520 | 0.5461 |
+| *human reference* | — | 0.2990 | 0.5509 |
+
+Gentle win-weighting nudges picks toward higher-WR cards at no top-1 cost; aggressive weighting
+backfires (data concentration). The model still trails humans on WR-agreement — deck-level
+`event_match_wins` is a weak lever; a card-level adjusted-WR head is the next step.
+
 ## Detailed docs
 
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the
   encoder ablation (features / hashing / MiniLM) and why text needs set diversity.
 - [phase2-set-transformer-infonce.md](phase2-set-transformer-infonce.md) — full Phase 2 analysis.
+- [phase3-winrate.md](phase3-winrate.md) — win-rate weighting sweep + WR-agreement metric.
 
 ## Shared caveats
 
