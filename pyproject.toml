@@ -4,18 +4,17 @@ version = "0.0.1"
 description = "Generalizing card-encoder models for MTG draft pick prediction"
 requires-python = ">=3.10"
 dependencies = [
-    "torch>=2.2",            # MPS backend for Apple Silicon
+    "torch>=2.2",            # MPS backend for Apple Silicon (dataset + training)
     "numpy",
-    "polars",                # streaming / lazy CSV -> parquet preprocessing
-    "pyarrow",               # parquet
-    "pandas",
-    "sentence-transformers", # frozen oracle-text encoder (card representation)
+    "pandas",                # chunked CSV reading in preprocess
+    "pyarrow",               # compact Parquet
     "requests",              # 17lands / Scryfall downloads
     "pyyaml",                # configs
     "tqdm",
 ]
 
 [project.optional-dependencies]
+embeddings = ["sentence-transformers"]  # frozen oracle-text encoder (Phase 1)
 dev = ["pytest", "ruff", "ipykernel"]
 
 [build-system]

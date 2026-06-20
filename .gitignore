@@ -1,5 +1,6 @@
 # Data — never commit datasets / embeddings / model artifacts
-data/
+# (anchored to repo root so it does NOT match the src/mtg_draft_ml/data/ package)
+/data/
 *.csv
 *.csv.gz
 *.parquet

@@ -1,0 +1,126 @@
+"""Download 17lands public draft data and Scryfall bulk card data.
+
+See docs/data-infra.md and docs/roadmap.md Phase 0.
+
+- 17lands draft data: a gzipped CSV per (set, event) on a public S3 bucket.
+- Scryfall: the `oracle_cards` bulk JSON (one entry per unique oracle card).
+
+`download_17lands_draft(..., sample_rows=N)` streams + gunzips on the fly and writes only
+the first N rows to a plain .csv — a few MB instead of GBs, for fast local iteration.
+"""
+from __future__ import annotations
+
+import gzip
+import pathlib
+
+# 17lands public bucket. e.g. .../draft_data_public.FDN.PremierDraft.csv.gz
+_17L_TMPL = (
+    "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/"
+    "draft_data_public.{set_code}.{event_type}.csv.gz"
+)
+_SCRYFALL_BULK_INDEX = "https://api.scryfall.com/bulk-data"
+# Scryfall asks API clients to send a descriptive User-Agent + Accept.
+_SCRYFALL_HEADERS = {"User-Agent": "mtg-draft-ml/0.0 (research)", "Accept": "*/*"}
+
+
+def _require_requests():
+    try:
+        import requests
+    except ImportError as e:  # pragma: no cover
+        raise ImportError("`requests` is required for downloads: pip install requests") from e
+    return requests
+
+
+def download_17lands_draft(
+    set_code: str,
+    event_type: str = "PremierDraft",
+    dest_dir: str | pathlib.Path = "data/raw",
+    sample_rows: int | None = None,
+    force: bool = False,
+    timeout: int = 120,
+) -> pathlib.Path:
+    """Download a 17lands draft CSV. Returns the local path.
+
+    sample_rows=N -> stream-decompress and keep only header + N rows as a plain .csv.
+    sample_rows=None -> download the full .csv.gz.
+    """
+    requests = _require_requests()
+    dest_dir = pathlib.Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    url = _17L_TMPL.format(set_code=set_code, event_type=event_type)
+
+    if sample_rows:
+        out = dest_dir / f"{set_code}.{event_type}.sample{sample_rows}.csv"
+        if out.exists() and not force:
+            return out
+        with requests.get(url, stream=True, timeout=timeout) as r:
+            r.raise_for_status()
+            r.raw.decode_content = False  # the body *is* a gzip file; decode it ourselves
+            with gzip.GzipFile(fileobj=r.raw) as gz, open(out, "wb") as f:
+                for i, line in enumerate(gz):
+                    f.write(line)
+                    if i >= sample_rows:  # header is line 0, then sample_rows rows
+                        break
+        return out
+
+    out = dest_dir / f"{set_code}.{event_type}.csv.gz"
+    if out.exists() and not force:
+        return out
+    _stream_to_file(requests, url, out, timeout)
+    return out
+
+
+def download_scryfall_oracle(
+    dest_path: str | pathlib.Path = "data/scryfall/oracle-cards.json",
+    force: bool = False,
+    timeout: int = 120,
+) -> pathlib.Path:
+    """Resolve the current `oracle_cards` bulk download URI and fetch it."""
+    requests = _require_requests()
+    dest_path = pathlib.Path(dest_path)
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    if dest_path.exists() and not force:
+        return dest_path
+
+    idx = requests.get(_SCRYFALL_BULK_INDEX, headers=_SCRYFALL_HEADERS, timeout=timeout)
+    idx.raise_for_status()
+    entries = idx.json()["data"]
+    uri = next(e["download_uri"] for e in entries if e["type"] == "oracle_cards")
+    _stream_to_file(requests, uri, dest_path, timeout, headers=_SCRYFALL_HEADERS)
+    with open(dest_path) as f:
+        if f.read(1) != "[":  # sanity: it's a JSON array
+            raise ValueError(f"unexpected Scryfall payload at {dest_path}")
+    return dest_path
+
+
+def _stream_to_file(requests, url, out, timeout, headers=None):
+    try:
+        from tqdm import tqdm
+    except ImportError:
+        tqdm = None
+    with requests.get(url, stream=True, timeout=timeout, headers=headers) as r:
+        r.raise_for_status()
+        total = int(r.headers.get("Content-Length", 0)) or None
+        bar = tqdm(total=total, unit="B", unit_scale=True, desc=out.name) if tqdm else None
+        with open(out, "wb") as f:
+            for chunk in r.iter_content(chunk_size=1 << 20):
+                f.write(chunk)
+                if bar:
+                    bar.update(len(chunk))
+        if bar:
+            bar.close()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Download 17lands draft + Scryfall data")
+    ap.add_argument("--set", dest="set_code", required=True)
+    ap.add_argument("--event", dest="event_type", default="PremierDraft")
+    ap.add_argument("--dest", default="data/raw")
+    ap.add_argument("--sample-rows", type=int, default=None)
+    ap.add_argument("--scryfall", action="store_true", help="also fetch Scryfall oracle bulk")
+    a = ap.parse_args()
+    print("draft:", download_17lands_draft(a.set_code, a.event_type, a.dest, sample_rows=a.sample_rows))
+    if a.scryfall:
+        print("scryfall:", download_scryfall_oracle())

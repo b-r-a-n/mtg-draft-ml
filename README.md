@@ -12,8 +12,9 @@ each card in the current pack.
 
 ## Status
 
-🟡 **Research complete, implementation not started.** This repo currently holds the research
-synthesis and a scaffold for the upcoming build.
+🟢 **Phase 0 data pipeline implemented** (download → compact Parquet → streaming loader),
+validated on real 17lands data. Baseline model + training loop are next. Research synthesis and
+the full design live under `docs/`.
 
 ## Where to start reading
 
@@ -42,10 +43,41 @@ notebooks/            exploration
 tests/
 ```
 
-## Quickstart (placeholder)
+## Setup
 
-Not runnable yet — see [docs/roadmap.md](docs/roadmap.md) Phase 0 for the first build step
-(17lands → Scryfall data pipeline + baseline model).
+Uses [`uv`](https://docs.astral.sh/uv/):
+
+```bash
+uv venv
+uv pip install -e ".[dev]"          # add ".[dev,embeddings]" for the Phase-1 text encoder
+uv run pytest                        # run tests
+```
+
+## Quickstart — Phase 0 data pipeline
+
+```bash
+# Fast local iteration: small sample download of a real set (a few MB, not GBs)
+uv run python -m mtg_draft_ml.data.pipeline --set FDN --sample-rows 50000
+
+# Full set + Scryfall oracle_id join
+uv run python -m mtg_draft_ml.data.pipeline --set FDN --scryfall
+
+# Reprocess a local CSV without downloading
+uv run python -m mtg_draft_ml.data.pipeline --set FDN --csv data/raw/FDN.PremierDraft.csv.gz
+```
+
+Outputs compact integer-index Parquet under `data/processed/draft/` and a card-vocab manifest
+under `data/processed/manifests/`. Load it for training:
+
+```python
+from mtg_draft_ml.data.dataset import DraftPickDataset, collate_picks
+from torch.utils.data import DataLoader
+
+ds = DraftPickDataset("data/processed/draft/FDN.PremierDraft.parquet")
+dl = DataLoader(ds, batch_size=512, shuffle=True, collate_fn=collate_picks)
+```
+
+See [docs/roadmap.md](docs/roadmap.md) Phase 0 for the next step (baseline model + eval harness).
 
 ## Hardware note
 
