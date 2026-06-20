@@ -44,11 +44,13 @@ def novel_card_mask(train_manifest: str, test_manifest: str) -> torch.Tensor:
 
 @torch.no_grad()
 def evaluate_on_set(model, parquet: str, device, novel_card: torch.Tensor | None = None,
-                    card_wr=None, batch_size: int = 512) -> dict:
+                    card_wr=None, quality=None, blend_alpha: float = 0.0,
+                    batch_size: int = 512) -> dict:
     """Evaluate `model` (with its current content table) on a set's picks.
 
     If `card_wr` (per-card win rate, manifest-index order) is given, also report 'good-not-just-
-    human' WR-agreement metrics (does the model take the highest-WR card in the pack).
+    human' WR-agreement metrics. If `quality` (per-card score) + `blend_alpha`>0 are given, the
+    pick is made on `pointer_logit + blend_alpha * quality[card]` (the pick-time quality blend).
     """
     from .winrate import WRMeter
 
@@ -65,11 +67,15 @@ def evaluate_on_set(model, parquet: str, device, novel_card: torch.Tensor | None
     if card_wr is not None:
         card_wr = (card_wr if torch.is_tensor(card_wr) else torch.as_tensor(card_wr)).to(device)
         wr_meter = WRMeter()
+    if quality is not None:
+        quality = quality.to(device)
     for b in dl:
         pack_mask = b["pack_mask"].to(device)
         label = b["label"].to(device)
         pack = b["pack"].to(device)
         logits = model(b["pool"].to(device), b["pool_mask"].to(device), pack, pack_mask)
+        if quality is not None and blend_alpha:
+            logits = logits + blend_alpha * quality[pack]   # -inf pads stay -inf
         pick_number = b["pick_number"]
         ev.update(logits, label, pack_mask, pick_number)
         sizes = pack_mask.sum(dim=-1).clamp_min(1)
@@ -108,6 +114,7 @@ def run_loso(
     loss: str = "ce", n_negatives: int = 512,
     win_weight: str = "none", win_beta: float = 0.3, holdout_ratings: str | None = None,
     aux_wr: float = 0.0, aux_wr_field: str = "ever_drawn_win_rate",
+    blend_alphas: list[float] | None = None,
     epochs: int = 10, batch_size: int = 512, lr: float = 1e-3, val_frac: float = 0.05,
     device: str = "auto", checkpoint_dir: str = "data/checkpoints", seed: int = 0,
     out_json: str | None = None,
@@ -176,11 +183,39 @@ def run_loso(
                     "frac_cards_novel": frac_novel, **cross},
     }
     _print_loso(results)
+
+    # Pick-time quality blend: sweep alpha using the aux head's PREDICTED quality (works for
+    # unseen cards). alpha=0 reproduces the base result above.
+    if blend_alphas and model.wr_head is not None:
+        quality = model.card_quality().detach()
+        sweep = []
+        for a in blend_alphas:
+            m = evaluate_on_set(model, holdout_spec["parquet"], dev, novel_card=novel,
+                                card_wr=card_wr, quality=quality, blend_alpha=a)
+            sweep.append({"alpha": a, "top1": m["top1"], "novel_top1": m.get("novel_top1"),
+                          "wr_agreement_model": m.get("wr_agreement_model"),
+                          "avg_pick_wr_model": m.get("avg_pick_wr_model")})
+        results["blend_sweep"] = sweep
+        _print_blend_sweep(sweep)
+    elif blend_alphas:
+        print("(--blend-alphas ignored: needs --aux-wr > 0 to provide a quality head)")
+
     if out_json:
         with open(out_json, "w") as f:
             json.dump(results, f, indent=2, default=float)
         print(f"\nwrote {out_json}")
     return results
+
+
+def _print_blend_sweep(sweep: list[dict]):
+    print("\n=== Pick-time quality blend (alpha sweep) ===")
+    print("  alpha   held-out_top1   novel_top1   WR-agreement   avg_pick_WR")
+    for s in sweep:
+        wr = s["wr_agreement_model"]
+        apw = s["avg_pick_wr_model"]
+        print(f"  {s['alpha']:>5}   {s['top1']:.4f}        {(s['novel_top1'] or 0):.4f}      "
+              f"{(wr if wr is not None else float('nan')):.4f}         "
+              f"{(apw if apw is not None else float('nan')):.4f}")
 
 
 def _print_loso(r: dict):
@@ -277,6 +312,8 @@ def main(argv=None):
     ap.add_argument("--aux-wr", type=float, default=0.0,
                     help="weight of the win-rate auxiliary head (needs ratings in each --train)")
     ap.add_argument("--aux-wr-field", default="ever_drawn_win_rate")
+    ap.add_argument("--blend-alphas", default=None,
+                    help="comma list of pick-time quality-blend alphas to sweep, e.g. 0,0.5,1,2")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--device", default="auto")
@@ -287,6 +324,7 @@ def main(argv=None):
         embedder=a.embedder, text=not a.no_text, pool=a.pool, n_heads=a.n_heads, n_sab=a.n_sab,
         loss=a.loss, n_negatives=a.n_negatives, win_weight=a.win_weight, win_beta=a.win_beta,
         holdout_ratings=a.holdout_ratings, aux_wr=a.aux_wr, aux_wr_field=a.aux_wr_field,
+        blend_alphas=[float(x) for x in a.blend_alphas.split(",")] if a.blend_alphas else None,
         out_json=a.out_json, epochs=a.epochs, batch_size=a.batch_size, device=a.device,
     )
 

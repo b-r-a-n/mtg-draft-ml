@@ -51,3 +51,19 @@ def test_card_quality_head():
     assert m2.wr_head is None
     with pytest.raises(RuntimeError):
         m2.card_quality()
+
+
+def test_pick_time_blend_follows_quality():
+    # with a large blend alpha, the pick should follow the predicted card quality
+    matrix = torch.randn(6, 10)
+    m = ContentDraftModel(matrix, emb_dim=8, enc_hidden=16, enc_layers=2, pool="mean",
+                          aux_wr=True).eval()
+    pool = torch.tensor([[0, 1]]); pool_mask = torch.tensor([[True, True]])
+    pack = torch.tensor([[2, 3, 4]]); pack_mask = torch.tensor([[True, True, True]])
+    with torch.no_grad():
+        logits = m(pool, pool_mask, pack, pack_mask)        # [1,3]
+        q = m.card_quality()                                # [6]
+        blended = logits + 1e4 * q[pack]                    # huge alpha
+    assert int(blended.argmax(dim=-1)) == int(q[pack].argmax(dim=-1))  # picks highest-quality card
+    # alpha=0 leaves the pick unchanged
+    assert int((logits + 0.0 * q[pack]).argmax(-1)) == int(logits.argmax(-1))
