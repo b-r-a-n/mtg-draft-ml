@@ -26,3 +26,11 @@ class DotPickHead(nn.Module):
         q = self.query(context).unsqueeze(1)               # [B, 1, d]
         logits = (q * pack_embs).sum(dim=-1) * self.scale  # [B, P]
         return logits.masked_fill(~pack_mask, float("-inf"))
+
+    def score_global(self, context: torch.Tensor, card_embs: torch.Tensor) -> torch.Tensor:
+        """Score a shared set of negative cards against each context. card_embs[K,d] -> [B,K].
+
+        Used for contextual InfoNCE: extra negatives drawn from the whole vocab (beyond the pack).
+        """
+        q = self.query(context)                            # [B, d]
+        return (q @ card_embs.t()) * self.scale            # [B, K]

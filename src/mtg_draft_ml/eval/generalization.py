@@ -90,6 +90,8 @@ def run_loso(
     train_specs: list[dict], holdout_spec: dict,
     embedder: str = "all-MiniLM-L6-v2", text: bool = True,
     emb_dim: int = 256, enc_hidden: int = 512, enc_layers: int = 3, dropout: float = 0.1,
+    pool: str = "mean", n_heads: int = 4, n_sab: int = 1,
+    loss: str = "ce", n_negatives: int = 512,
     epochs: int = 10, batch_size: int = 512, lr: float = 1e-3, val_frac: float = 0.05,
     device: str = "auto", checkpoint_dir: str = "data/checkpoints", seed: int = 0,
     out_json: str | None = None,
@@ -123,10 +125,12 @@ def run_loso(
     print(f"picks: {n_tr} train / {n_va} val across {len(train_specs)} sets")
 
     model = ContentDraftModel(torch.from_numpy(gmat), emb_dim=emb_dim, enc_hidden=enc_hidden,
-                              enc_layers=enc_layers, dropout=dropout).to(dev)
+                              enc_layers=enc_layers, dropout=dropout, pool=pool,
+                              n_heads=n_heads, n_sab=n_sab).to(dev)
     best = train_loop(model, train_dl, val_dl, dev, epochs=epochs, lr=lr,
                       checkpoint_dir=checkpoint_dir, checkpoint_every=0,
-                      n_cards=ginfo["n_cards"], tag="loso", ckpt_prefix="loso")
+                      n_cards=ginfo["n_cards"], tag="loso", ckpt_prefix="loso",
+                      loss=loss, n_negatives=n_negatives)
 
     novel = novel_mask_for_holdout(holdout_spec["manifest"], set(key_to_idx))
     frac_novel = float(novel.float().mean())
@@ -135,6 +139,7 @@ def run_loso(
 
     results = {
         "mode": "loso", "embedder": embedder, "text": text,
+        "pool": pool, "loss": loss,
         "n_train_sets": len(train_specs), "train_cards": ginfo["n_cards"],
         "train_in_set_top1": best["top1"],
         "holdout": {"parquet": holdout_spec["parquet"], "n_cards": hinfo["n_cards"],
@@ -151,8 +156,8 @@ def run_loso(
 def _print_loso(r: dict):
     h = r["holdout"]
     print("\n=== Leave-one-set-out report ===")
-    print(f"embedder: {r['embedder']}  text={r['text']}  train_sets={r['n_train_sets']}  "
-          f"train_cards={r['train_cards']}")
+    print(f"embedder: {r['embedder']}  text={r['text']}  pool={r['pool']}  loss={r['loss']}  "
+          f"train_sets={r['n_train_sets']}  train_cards={r['train_cards']}")
     print(f"in-set (train union) val: top1={r['train_in_set_top1']:.4f}")
     print(f"held-out (unseen set)   : top1={h['top1']:.4f}  mtpd={h['mtpd']:.3f}  n={h['n']}")
     print(f"  novel-card picks      : top1={h.get('novel_top1', float('nan')):.4f}  "
@@ -223,6 +228,11 @@ def main(argv=None):
     ap.add_argument("--holdout", required=True, metavar="PARQUET,MANIFEST,SCRYFALL")
     ap.add_argument("--embedder", default="all-MiniLM-L6-v2")
     ap.add_argument("--no-text", action="store_true", help="structured features only (ablation)")
+    ap.add_argument("--pool", default="mean", choices=["mean", "set_transformer"])
+    ap.add_argument("--n-heads", type=int, default=4)
+    ap.add_argument("--n-sab", type=int, default=1)
+    ap.add_argument("--loss", default="ce", choices=["ce", "infonce"])
+    ap.add_argument("--n-negatives", type=int, default=512)
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--device", default="auto")
@@ -230,7 +240,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     run_loso(
         [_spec(t) for t in a.train], _spec(a.holdout),
-        embedder=a.embedder, text=not a.no_text, out_json=a.out_json,
+        embedder=a.embedder, text=not a.no_text, pool=a.pool, n_heads=a.n_heads, n_sab=a.n_sab,
+        loss=a.loss, n_negatives=a.n_negatives, out_json=a.out_json,
         epochs=a.epochs, batch_size=a.batch_size, device=a.device,
     )
 
