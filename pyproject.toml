@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 embeddings = ["sentence-transformers"]  # frozen oracle-text encoder (Phase 1)
+hub = ["huggingface_hub"]               # push/pull dataset + checkpoints (DD-007)
 dev = ["pytest", "ruff", "ipykernel"]
 
 [build-system]

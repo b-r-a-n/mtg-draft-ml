@@ -94,7 +94,30 @@ the hard synergy region). Checkpoints to `data/checkpoints/{last,best}.pt`. This
 fixed-vocabulary baseline that **cannot** generalize to unseen cards — Phase 1 replaces it with
 the content card encoder.
 
-See [docs/roadmap.md](docs/roadmap.md) for Phase 1 (content encoder + new-set generalization).
+## Sync with Hugging Face (the data hub — DD-007)
+
+HF Datasets is the hub between local/CPU preprocessing and the marketplace GPU. The dataset
+format is unchanged — `DraftPickDataset` always reads a local path; HF just moves the files.
+
+```bash
+uv pip install -e ".[hub]"     # huggingface-cli login (or HF_TOKEN) needed only to push
+
+# Producer: preprocess a set and push its shard + manifest
+uv run python -m mtg_draft_ml.data.pipeline --set FDN --scryfall \
+    --push --hf-repo <user>/mtg-draft
+
+# Consumer (e.g. on a GPU pod): pull a processed shard, skip all preprocessing
+uv run python -m mtg_draft_ml.data.pipeline --set FDN --pull --hf-repo <user>/mtg-draft
+
+# Whole-corpus push/pull (all shards):
+uv run python -m mtg_draft_ml.data.hf push --repo <user>/mtg-draft
+uv run python -m mtg_draft_ml.data.hf pull --repo <user>/mtg-draft --revision <sha-or-tag>
+```
+
+Pin `--hf-revision` / `--revision` for reproducible train/val and leave-one-set-out splits.
+
+See [docs/roadmap.md](docs/roadmap.md) for Phase 1 (content encoder + new-set generalization)
+and [docs/data-infra.md](docs/data-infra.md) for the full storage plan.
 
 ## Hardware note
 
