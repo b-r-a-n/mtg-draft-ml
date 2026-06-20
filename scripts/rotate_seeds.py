@@ -13,10 +13,13 @@ import sys
 
 from mtg_draft_ml.eval.generalization import run_loso
 
-P = sys.argv[1] if len(sys.argv) > 1 else "/tmp/p1proc"
+args = [a for a in sys.argv[1:] if not a.startswith("--")]
+STANDARDIZE = "--standardize" in sys.argv
+P = args[0] if args else "/tmp/p1proc"
 SIZE = "60000"
 SETS = ["BLB", "OTJ", "WOE", "MKM", "DSK"]
 SEEDS = [0, 1, 2]
+OUT = f"{P}/rotate_results{'_std' if STANDARDIZE else ''}.json"
 
 
 def spec(s: str) -> dict:
@@ -44,8 +47,8 @@ for seed in SEEDS:
             train,
             {"parquet": hold["parquet"], "manifest": hold["manifest"], "scryfall": hold["scryfall"]},
             embedder="all-MiniLM-L6-v2", pool="set_transformer", loss="ce",
-            aux_wr=1.0, holdout_ratings=hold["ratings"], epochs=10, seed=seed,
-            val_frac=0.05, checkpoint_dir="/tmp/rot_ck",
+            aux_wr=1.0, holdout_ratings=hold["ratings"], standardize_features=STANDARDIZE,
+            epochs=10, seed=seed, val_frac=0.05, checkpoint_dir="/tmp/rot_ck",
         )
         h = r["holdout"]
         rows.append({"seed": seed, "holdout": ho, "top1": h["top1"],
@@ -70,5 +73,6 @@ print(f"  held-out top1 : {allt[0]:.4f} +/- {allt[1]:.4f}")
 print(f"  novel-only    : {alln[0]:.4f} +/- {alln[1]:.4f}")
 print(f"  WR-agreement  : model {allwr[0]:.4f}  human {allwrh[0]:.4f}")
 
-json.dump(rows, open(f"{P}/rotate_results.json", "w"), indent=2, default=float)
-print(f"wrote {P}/rotate_results.json")
+print(f"  (standardize_features={STANDARDIZE})")
+json.dump(rows, open(OUT, "w"), indent=2, default=float)
+print(f"wrote {OUT}")

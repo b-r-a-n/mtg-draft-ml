@@ -114,7 +114,7 @@ def run_loso(
     loss: str = "ce", n_negatives: int = 512,
     win_weight: str = "none", win_beta: float = 0.3, holdout_ratings: str | None = None,
     aux_wr: float = 0.0, aux_wr_field: str = "ever_drawn_win_rate",
-    blend_alphas: list[float] | None = None,
+    blend_alphas: list[float] | None = None, standardize_features: bool = False,
     epochs: int = 10, batch_size: int = 512, lr: float = 1e-3, val_frac: float = 0.05,
     device: str = "auto", checkpoint_dir: str = "data/checkpoints", seed: int = 0,
     out_json: str | None = None,
@@ -128,6 +128,12 @@ def run_loso(
     hmat, hinfo = build_content_matrix(holdout_spec["manifest"], holdout_spec["scryfall"],
                                        embedder=emb, text=text)
     assert gmat.shape[1] == hmat.shape[1], (gmat.shape, hmat.shape)
+
+    if standardize_features:
+        from ..cards.content_table import standardize_matrix
+        gmat, stats = standardize_matrix(gmat)          # fit scaler on training cards
+        hmat, _ = standardize_matrix(hmat, stats)       # apply same scaling to holdout (no leakage)
+        print("standardized content matrix (per-column z-score, train stats)")
 
     torch.manual_seed(seed)
     dev = pick_device(device)
@@ -177,6 +183,7 @@ def run_loso(
     results = {
         "mode": "loso", "embedder": embedder, "text": text,
         "pool": pool, "loss": loss, "win_weight": win_weight, "aux_wr": aux_wr,
+        "standardize_features": standardize_features,
         "n_train_sets": len(train_specs), "train_cards": ginfo["n_cards"],
         "train_in_set_top1": best["top1"],
         "holdout": {"parquet": holdout_spec["parquet"], "n_cards": hinfo["n_cards"],
@@ -314,6 +321,8 @@ def main(argv=None):
     ap.add_argument("--aux-wr-field", default="ever_drawn_win_rate")
     ap.add_argument("--blend-alphas", default=None,
                     help="comma list of pick-time quality-blend alphas to sweep, e.g. 0,0.5,1,2")
+    ap.add_argument("--standardize-features", action="store_true",
+                    help="per-column z-score the content matrix (train stats applied to holdout)")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--device", default="auto")
@@ -325,6 +334,7 @@ def main(argv=None):
         loss=a.loss, n_negatives=a.n_negatives, win_weight=a.win_weight, win_beta=a.win_beta,
         holdout_ratings=a.holdout_ratings, aux_wr=a.aux_wr, aux_wr_field=a.aux_wr_field,
         blend_alphas=[float(x) for x in a.blend_alphas.split(",")] if a.blend_alphas else None,
+        standardize_features=a.standardize_features,
         out_json=a.out_json, epochs=a.epochs, batch_size=a.batch_size, device=a.device,
     )
 

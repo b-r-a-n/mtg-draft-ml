@@ -61,6 +61,7 @@ def fit(
     n_negatives: int = 512,
     win_weight: str = "none",
     win_beta: float = 0.3,
+    standardize: bool = False,
     epochs: int = 8,
     batch_size: int = 512,
     lr: float = 1e-3,
@@ -74,6 +75,9 @@ def fit(
     """Train a ContentDraftModel on `matrix`. Returns (model, best_val_metrics)."""
     torch.manual_seed(seed)
     dev = pick_device(device)
+    if standardize:
+        from ..cards.content_table import standardize_matrix
+        matrix, _ = standardize_matrix(matrix)
     print(f"device={dev}  content matrix {tuple(matrix.shape)}  {info}")
 
     ds = DraftPickDataset(parquet)

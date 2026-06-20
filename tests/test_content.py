@@ -100,6 +100,19 @@ def test_content_model_forward_and_mask(tmp_path):
     assert torch.isfinite(logits[0, :2]).all()
 
 
+def test_standardize_matrix():
+    from mtg_draft_ml.cards.content_table import standardize_matrix
+    m = np.array([[1.0, 100.0, 5.0], [3.0, 300.0, 5.0]], dtype=np.float32)  # col2 zero-variance
+    z, stats = standardize_matrix(m)
+    assert abs(z[:, 0].mean()) < 1e-5 and abs(z[:, 0].std() - 1.0) < 1e-4
+    assert np.allclose(z[:, 2], 0.0)               # zero-variance column -> 0, no div-by-zero
+    # applying training stats to another matrix uses the SAME scaling (no refit)
+    other = np.array([[5.0, 500.0, 5.0]], dtype=np.float32)
+    z2, _ = standardize_matrix(other, stats)
+    mean, std = stats
+    assert np.allclose(z2[0], (other[0] - mean) / std)
+
+
 def test_content_train_smoke(tmp_path: pathlib.Path):
     pq, man, scry, _, _ = _build(tmp_path)
     best = train(str(pq), str(man), scryfall=str(scry), embedder="hash",

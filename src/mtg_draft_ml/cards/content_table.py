@@ -119,6 +119,22 @@ def build_multiset_content(set_specs, embedder=None, text: bool = True):
     return matrix, info, key_to_idx, per_set
 
 
+def standardize_matrix(matrix: np.ndarray, stats=None, eps: float = 1e-6):
+    """Per-column z-score the content matrix. Returns (standardized, (mean, std)).
+
+    Pass `stats` (from the training matrix) to apply the SAME scaling to a holdout matrix — no
+    leakage, consistent scale. Fixes the raw-feature / unit-norm-text scale mismatch (Phase 1
+    caveat) so the encoder sees all dims on a comparable scale. Zero-variance columns are left as-is.
+    """
+    if stats is None:
+        mean = matrix.mean(axis=0)
+        std = matrix.std(axis=0)
+        std = np.where(std < eps, 1.0, std)
+        stats = (mean.astype(np.float32), std.astype(np.float32))
+    mean, std = stats
+    return ((matrix - mean) / std).astype(np.float32), stats
+
+
 def save_content_matrix(path, matrix: np.ndarray, info: dict) -> pathlib.Path:
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
