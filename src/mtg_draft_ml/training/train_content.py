@@ -21,6 +21,7 @@ import pathlib
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 
 from ..cards.content_table import build_content_matrix, load_content_matrix
@@ -95,14 +96,21 @@ def fit(
 
 def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, checkpoint_every,
                n_cards, tag, ckpt_prefix="content", loss="ce", n_negatives=512,
-               win_weight="none", win_beta=0.3):
+               win_weight="none", win_beta=0.3,
+               aux_wr_target=None, aux_wr_mask=None, aux_wr_lambda=0.0):
     """Shared epoch loop used by both single-set fit() and multi-set LOSO. Returns best metrics.
 
     loss="infonce" appends `n_negatives` shared global negatives to each example's pack logits
     (contextual InfoNCE); loss="ce" is plain masked in-pack cross-entropy. win_weight!="none"
     weights each example by its draft's event_match_wins (advantage-weighted BC — DD-004).
+    aux_wr_lambda>0 adds a multi-task win-rate regression head (MSE on aux_wr_target[aux_wr_mask]).
     """
     use_negs = loss == "infonce" and n_negatives > 0
+    aux_on = aux_wr_lambda > 0 and aux_wr_target is not None
+    tt = mm = None
+    if aux_on:
+        tt = torch.as_tensor(aux_wr_target, dtype=torch.float32, device=dev)
+        mm = torch.as_tensor(aux_wr_mask, dtype=torch.bool, device=dev)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     ckpt_dir = pathlib.Path(checkpoint_dir)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -111,6 +119,7 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
     for epoch in range(epochs):
         model.train()
         running = seen = 0.0
+        aux_running = 0.0
         for b in train_dl:
             neg = torch.randint(0, n_cards, (n_negatives,), device=dev) if use_negs else None
             logits = model(b["pool"].to(dev), b["pool_mask"].to(dev),
@@ -118,6 +127,10 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
             weights = (win_rate_weights(b["wins"].to(dev), scheme=win_weight, beta=win_beta)
                        if win_weight != "none" else None)
             loss_v = pick_cross_entropy(logits, b["label"].to(dev), weights=weights)
+            if aux_on:
+                aux = F.mse_loss(model.card_quality()[mm], tt[mm])
+                loss_v = loss_v + aux_wr_lambda * aux
+                aux_running += aux.item()
             opt.zero_grad()
             loss_v.backward()
             opt.step()
@@ -128,9 +141,10 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
                 _save(ckpt_dir / f"{ckpt_prefix}_last.pt", model, opt, step, epoch, n_cards, tag)
 
         m = evaluate(model, val_dl, dev)
+        aux_str = f"  aux_wr_mse={aux_running / max(len(train_dl), 1):.4f}" if aux_on else ""
         print(f"epoch {epoch}: train_loss={running / max(seen, 1):.4f}  "
               f"val_top1={m['top1']:.4f}  val_mtpd={m['mtpd']:.3f}  "
-              f"mid-pack_top1={_midpack_acc(m['acc_by_pick']):.4f}")
+              f"mid-pack_top1={_midpack_acc(m['acc_by_pick']):.4f}{aux_str}")
         _save(ckpt_dir / f"{ckpt_prefix}_last.pt", model, opt, step, epoch, n_cards, tag)
         if m["top1"] > best["top1"]:
             best = m

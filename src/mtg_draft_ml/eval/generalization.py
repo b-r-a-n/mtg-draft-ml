@@ -107,6 +107,7 @@ def run_loso(
     pool: str = "mean", n_heads: int = 4, n_sab: int = 1,
     loss: str = "ce", n_negatives: int = 512,
     win_weight: str = "none", win_beta: float = 0.3, holdout_ratings: str | None = None,
+    aux_wr: float = 0.0, aux_wr_field: str = "ever_drawn_win_rate",
     epochs: int = 10, batch_size: int = 512, lr: float = 1e-3, val_frac: float = 0.05,
     device: str = "auto", checkpoint_dir: str = "data/checkpoints", seed: int = 0,
     out_json: str | None = None,
@@ -139,13 +140,23 @@ def run_loso(
     n_va = sum(len(s) for s in val_subsets)
     print(f"picks: {n_tr} train / {n_va} val across {len(train_specs)} sets")
 
+    aux_target = aux_mask = None
+    if aux_wr > 0:
+        from .winrate import build_global_wr_targets
+        rating_specs = [{"manifest": s["manifest"], "ratings": s["ratings"]} for s in train_specs]
+        aux_target, aux_mask = build_global_wr_targets(rating_specs, l2gs, ginfo["n_cards"],
+                                                       field=aux_wr_field)
+        print(f"aux-WR head: {int(aux_mask.sum())}/{ginfo['n_cards']} cards have a WR target "
+              f"(field={aux_wr_field}, λ={aux_wr})")
+
     model = ContentDraftModel(torch.from_numpy(gmat), emb_dim=emb_dim, enc_hidden=enc_hidden,
                               enc_layers=enc_layers, dropout=dropout, pool=pool,
-                              n_heads=n_heads, n_sab=n_sab).to(dev)
+                              n_heads=n_heads, n_sab=n_sab, aux_wr=aux_wr > 0).to(dev)
     best = train_loop(model, train_dl, val_dl, dev, epochs=epochs, lr=lr,
                       checkpoint_dir=checkpoint_dir, checkpoint_every=0,
                       n_cards=ginfo["n_cards"], tag="loso", ckpt_prefix="loso",
-                      loss=loss, n_negatives=n_negatives, win_weight=win_weight, win_beta=win_beta)
+                      loss=loss, n_negatives=n_negatives, win_weight=win_weight, win_beta=win_beta,
+                      aux_wr_target=aux_target, aux_wr_mask=aux_mask, aux_wr_lambda=aux_wr)
 
     novel = novel_mask_for_holdout(holdout_spec["manifest"], set(key_to_idx))
     frac_novel = float(novel.float().mean())
@@ -158,7 +169,7 @@ def run_loso(
 
     results = {
         "mode": "loso", "embedder": embedder, "text": text,
-        "pool": pool, "loss": loss, "win_weight": win_weight,
+        "pool": pool, "loss": loss, "win_weight": win_weight, "aux_wr": aux_wr,
         "n_train_sets": len(train_specs), "train_cards": ginfo["n_cards"],
         "train_in_set_top1": best["top1"],
         "holdout": {"parquet": holdout_spec["parquet"], "n_cards": hinfo["n_cards"],
@@ -236,10 +247,13 @@ def _print_report(r: dict):
           f"(published bars: ~0.22 chance, ~0.55 pretrained, per Bertram et al. 2024)")
 
 
-def _spec(triple: str) -> dict:
-    """Parse a 'parquet,manifest,scryfall' triple into a spec dict."""
-    pq, man, scry = triple.split(",")
-    return {"parquet": pq.strip(), "manifest": man.strip(), "scryfall": scry.strip()}
+def _spec(s: str) -> dict:
+    """Parse 'parquet,manifest,scryfall[,ratings]' into a spec dict (ratings needed for --aux-wr)."""
+    parts = [p.strip() for p in s.split(",")]
+    out = {"parquet": parts[0], "manifest": parts[1], "scryfall": parts[2]}
+    if len(parts) > 3:
+        out["ratings"] = parts[3]
+    return out
 
 
 def main(argv=None):
@@ -260,6 +274,9 @@ def main(argv=None):
     ap.add_argument("--win-weight", default="none", choices=["none", "linear", "exp"])
     ap.add_argument("--win-beta", type=float, default=0.3)
     ap.add_argument("--holdout-ratings", default=None, help="17lands ratings JSON for WR-agreement")
+    ap.add_argument("--aux-wr", type=float, default=0.0,
+                    help="weight of the win-rate auxiliary head (needs ratings in each --train)")
+    ap.add_argument("--aux-wr-field", default="ever_drawn_win_rate")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--device", default="auto")
@@ -269,8 +286,8 @@ def main(argv=None):
         [_spec(t) for t in a.train], _spec(a.holdout),
         embedder=a.embedder, text=not a.no_text, pool=a.pool, n_heads=a.n_heads, n_sab=a.n_sab,
         loss=a.loss, n_negatives=a.n_negatives, win_weight=a.win_weight, win_beta=a.win_beta,
-        holdout_ratings=a.holdout_ratings, out_json=a.out_json,
-        epochs=a.epochs, batch_size=a.batch_size, device=a.device,
+        holdout_ratings=a.holdout_ratings, aux_wr=a.aux_wr, aux_wr_field=a.aux_wr_field,
+        out_json=a.out_json, epochs=a.epochs, batch_size=a.batch_size, device=a.device,
     )
 
 

@@ -19,14 +19,26 @@ from .pick_head import DotPickHead
 from .pool_encoder import MeanPoolEncoder, SetTransformerEncoder
 
 
+class WRHead(nn.Module):
+    """Auxiliary head: card embedding -> predicted (adjusted) win rate. Multi-task signal (DD-004)."""
+
+    def __init__(self, dim: int, hidden: int = 128):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(dim, hidden), nn.ReLU(), nn.Linear(hidden, 1))
+
+    def forward(self, card_embs: torch.Tensor) -> torch.Tensor:
+        return self.net(card_embs).squeeze(-1)
+
+
 class ContentDraftModel(nn.Module):
     def __init__(self, content_matrix: torch.Tensor, emb_dim: int = 256,
                  enc_hidden: int = 512, enc_layers: int = 3, dropout: float = 0.1,
-                 pool: str = "mean", n_heads: int = 4, n_sab: int = 1):
+                 pool: str = "mean", n_heads: int = 4, n_sab: int = 1, aux_wr: bool = False):
         super().__init__()
         self.register_buffer("content", content_matrix.float())  # [n_cards, D], frozen
         self.card_encoder = CardEncoder(content_matrix.shape[1], hidden=enc_hidden,
                                         out_dim=emb_dim, layers=enc_layers, dropout=dropout)
+        self.wr_head = WRHead(emb_dim) if aux_wr else None
         if pool == "set_transformer":
             self.pool_encoder = SetTransformerEncoder(emb_dim, heads=n_heads, n_sab=n_sab,
                                                       dropout=dropout)
@@ -43,6 +55,12 @@ class ContentDraftModel(nn.Module):
     def card_embeddings(self) -> torch.Tensor:
         """Encode every card in the current table -> [n_cards, emb_dim]."""
         return self.card_encoder(self.content)
+
+    def card_quality(self) -> torch.Tensor:
+        """Auxiliary head's predicted win rate for every card -> [n_cards]. Requires aux_wr=True."""
+        if self.wr_head is None:
+            raise RuntimeError("model built without aux_wr head")
+        return self.wr_head(self.card_embeddings())
 
     def forward(self, pool: torch.Tensor, pool_mask: torch.Tensor,
                 pack: torch.Tensor, pack_mask: torch.Tensor,

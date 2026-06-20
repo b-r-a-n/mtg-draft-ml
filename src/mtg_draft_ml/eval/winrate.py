@@ -38,6 +38,41 @@ def align_winrates(manifest_path, ratings_path, field: str = DEFAULT_FIELD) -> n
     return arr
 
 
+def zscore_ignore_nan(a: np.ndarray) -> np.ndarray:
+    """Standardize an array (mean 0, std 1) ignoring NaNs; NaNs are preserved."""
+    m = np.nanmean(a)
+    s = np.nanstd(a)
+    if not np.isfinite(s) or s == 0:
+        s = 1.0
+    return (a - m) / s
+
+
+def build_global_wr_targets(rating_specs, local_to_global, n_global: int,
+                            field: str = DEFAULT_FIELD, standardize: bool = True):
+    """Build a global-vocab win-rate regression target for the aux head (Phase 3 / DD-004).
+
+    rating_specs: list of {"manifest", "ratings"} (parallel to local_to_global). Each set's win
+    rates are optionally **standardized within the set** (z-score) — a light confounder adjustment
+    that removes per-format win-rate baselines so the target is *relative card quality*, comparable
+    across sets. Reprints (same global card) are averaged.
+
+    Returns (target[n_global] float32 (0 where unknown), mask[n_global] bool).
+    """
+    acc = np.zeros(n_global, dtype=np.float32)
+    cnt = np.zeros(n_global, dtype=np.float32)
+    for spec, l2g in zip(rating_specs, local_to_global):
+        local = align_winrates(spec["manifest"], spec["ratings"], field)
+        if standardize:
+            local = zscore_ignore_nan(local)
+        for i, gv in enumerate(l2g):
+            if not np.isnan(local[i]):
+                acc[gv] += local[i]
+                cnt[gv] += 1.0
+    mask = cnt > 0
+    acc[mask] /= cnt[mask]
+    return acc, mask
+
+
 class WRMeter:
     """Accumulate 'good-not-just-human' metrics over batches, given per-card win rates.
 
