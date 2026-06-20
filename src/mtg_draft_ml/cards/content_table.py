@@ -70,6 +70,55 @@ def build_content_matrix(manifest_path, scryfall_path, embedder=None, text: bool
     return matrix, info
 
 
+def build_multiset_content(set_specs, embedder=None, text: bool = True):
+    """Build a shared content matrix over the UNION of several sets' cards.
+
+    set_specs: list of {"manifest": ..., "scryfall": ...}. Cards are deduped by oracle_id (or
+    lowercased name). Returns (matrix [N_global, D], info, key_to_idx, per_set_local_to_global),
+    where per_set_local_to_global[k] is an int array mapping set k's local indices to global rows.
+    """
+    from .features import FEATURE_DIM, _all_text
+    from .scryfall import load_scryfall
+
+    embedder = embedder or get_embedder("hash")
+    key_to_idx: dict[str, int] = {}
+    feats: list[np.ndarray] = []
+    texts: list[str] = []
+    per_set: list[np.ndarray] = []
+
+    for spec in set_specs:
+        manifest = json.load(open(spec["manifest"]))
+        by_name = _name_index(load_scryfall(spec["scryfall"]))
+        l2g = np.empty(len(manifest["cards"]), dtype=np.int64)
+        for row in manifest["cards"]:  # index-ordered
+            key = row.get("oracle_id") or (row.get("name") or "").lower()
+            if key not in key_to_idx:
+                key_to_idx[key] = len(key_to_idx)
+                rec = by_name.get(row["name"])
+                feats.append(card_features(rec) if rec else np.zeros(FEATURE_DIM, np.float32))
+                texts.append(_all_text(rec) if rec else "")
+            l2g[row["index"]] = key_to_idx[key]
+        per_set.append(l2g)
+
+    feat_mat = np.vstack(feats).astype(np.float32)
+    if text:
+        tembs = embedder.embed(texts)
+        matrix = np.concatenate([feat_mat, tembs], axis=1).astype(np.float32)
+        text_dim = int(tembs.shape[1])
+    else:
+        matrix = feat_mat
+        text_dim = 0
+    info = {
+        "n_cards": int(matrix.shape[0]),
+        "feature_dim": FEATURE_DIM,
+        "text_dim": text_dim,
+        "total_dim": int(matrix.shape[1]),
+        "n_sets": len(set_specs),
+        "embedder": type(embedder).__name__,
+    }
+    return matrix, info, key_to_idx, per_set
+
+
 def save_content_matrix(path, matrix: np.ndarray, info: dict) -> pathlib.Path:
     path = pathlib.Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

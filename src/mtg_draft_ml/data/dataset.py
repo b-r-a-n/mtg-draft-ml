@@ -56,6 +56,30 @@ class DraftPickDataset:
         }
 
 
+class RemappedDataset:
+    """Wrap a DraftPickDataset, remapping set-local card indices to a shared/global vocab.
+
+    Used for multi-set training (leave-one-set-out): each set's compact Parquet stores its own
+    local indices; `local_to_global[i]` maps set-local index i to the shared content-matrix row.
+    pick_pos (position within the pack) is unaffected by remapping.
+    """
+
+    def __init__(self, base: "DraftPickDataset", local_to_global):
+        self.base = base
+        self.l2g = [int(x) for x in local_to_global]
+
+    def __len__(self):
+        return len(self.base)
+
+    def __getitem__(self, i: int) -> dict:
+        b = dict(self.base[i])
+        g = self.l2g
+        b["pack_indices"] = [g[x] for x in b["pack_indices"]]
+        b["pool_indices"] = [g[x] for x in b["pool_indices"]]
+        b["pick_idx"] = g[b["pick_idx"]]
+        return b
+
+
 def collate_picks(batch: list[dict], pad_value: int = 0):
     """Pad packs/pools to the batch max and build masks.
 

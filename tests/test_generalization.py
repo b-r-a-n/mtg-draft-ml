@@ -6,7 +6,11 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from mtg_draft_ml.data.preprocess import preprocess_set  # noqa: E402
-from mtg_draft_ml.eval.generalization import novel_card_mask, run_experiment  # noqa: E402
+from mtg_draft_ml.eval.generalization import (  # noqa: E402
+    novel_card_mask,
+    run_experiment,
+    run_loso,
+)
 
 # Set A: cards A,B,C,D. Set B: shares A,B but adds new cards E,F.
 CSV_A = """\
@@ -64,3 +68,23 @@ def test_run_experiment_cross_set(tmp_path):
     assert te["frac_cards_novel"] == 0.5      # E,F of {A,B,E,F}
     assert te["n_novel"] >= 1                  # at least one pick of a novel card (E, F)
     assert res["train"]["n_cards"] == 4 and te["n_cards"] == 4
+
+
+def test_run_loso_multiset(tmp_path):
+    # Train on two sets (A: cards A-D, B: cards A,B,E,F) sharing a vocab; hold out A.
+    pq_a, man_a, scry = _prep(tmp_path, "A", CSV_A)
+    pq_b, man_b, _ = _prep(tmp_path, "B", CSV_B)
+    train = [{"parquet": pq_b, "manifest": man_b, "scryfall": scry}]
+    holdout = {"parquet": pq_a, "manifest": man_a, "scryfall": scry}
+    res = run_loso(
+        train, holdout, embedder="hash", text=True, emb_dim=16, enc_hidden=32, enc_layers=2,
+        epochs=2, batch_size=4, val_frac=0.5, device="cpu",
+        checkpoint_dir=str(tmp_path / "ck"), seed=0,
+    )
+    h = res["holdout"]
+    assert res["mode"] == "loso" and res["n_train_sets"] == 1
+    # train set B has cards {A,B,E,F}; holdout A has {A,B,C,D}; C,D novel -> 2/4
+    assert h["frac_cards_novel"] == 0.5
+    assert 0.0 <= h["top1"] <= 1.0 and 0.0 < h["random_floor"] <= 1.0
+    # global training vocab is the union over train sets (just B here) = 4 cards
+    assert res["train_cards"] == 4

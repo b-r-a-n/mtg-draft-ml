@@ -78,10 +78,18 @@ def fit(
 
     model = ContentDraftModel(torch.from_numpy(matrix), emb_dim=emb_dim, enc_hidden=enc_hidden,
                               enc_layers=enc_layers, dropout=dropout).to(dev)
+    best = train_loop(model, train_dl, val_dl, dev, epochs=epochs, lr=lr,
+                      checkpoint_dir=checkpoint_dir, checkpoint_every=checkpoint_every,
+                      n_cards=info["n_cards"], tag=manifest)
+    return model, best
+
+
+def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, checkpoint_every,
+               n_cards, tag, ckpt_prefix="content"):
+    """Shared epoch loop used by both single-set fit() and multi-set LOSO. Returns best metrics."""
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     ckpt_dir = pathlib.Path(checkpoint_dir)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
-
     step = 0
     best = {"top1": -1.0}
     for epoch in range(epochs):
@@ -98,19 +106,19 @@ def fit(
             running += loss.item() * len(b["label"])
             seen += len(b["label"])
             if checkpoint_every and step % checkpoint_every == 0:
-                _save(ckpt_dir / "content_last.pt", model, opt, step, epoch, info["n_cards"], manifest)
+                _save(ckpt_dir / f"{ckpt_prefix}_last.pt", model, opt, step, epoch, n_cards, tag)
 
         m = evaluate(model, val_dl, dev)
         print(f"epoch {epoch}: train_loss={running / max(seen, 1):.4f}  "
               f"val_top1={m['top1']:.4f}  val_mtpd={m['mtpd']:.3f}  "
               f"mid-pack_top1={_midpack_acc(m['acc_by_pick']):.4f}")
-        _save(ckpt_dir / "content_last.pt", model, opt, step, epoch, info["n_cards"], manifest)
+        _save(ckpt_dir / f"{ckpt_prefix}_last.pt", model, opt, step, epoch, n_cards, tag)
         if m["top1"] > best["top1"]:
             best = m
-            _save(ckpt_dir / "content_best.pt", model, opt, step, epoch, info["n_cards"], manifest)
+            _save(ckpt_dir / f"{ckpt_prefix}_best.pt", model, opt, step, epoch, n_cards, tag)
 
     print(f"best val_top1={best['top1']:.4f}")
-    return model, best
+    return best
 
 
 def _resolve_matrix(manifest, content, scryfall, embedder):

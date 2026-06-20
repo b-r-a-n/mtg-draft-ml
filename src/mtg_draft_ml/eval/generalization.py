@@ -17,13 +17,15 @@ from __future__ import annotations
 import json
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import ConcatDataset, DataLoader, Subset
 
-from ..cards.content_table import build_content_matrix
+from ..cards.content_table import build_content_matrix, build_multiset_content
 from ..cards.text_embed import get_embedder
-from ..data.dataset import DraftPickDataset, collate_picks
+from ..data.dataset import DraftPickDataset, RemappedDataset, collate_picks
 from ..eval.metrics import PickEvaluator
-from ..training.train_content import fit
+from ..models.draft_model import ContentDraftModel
+from ..training.train import draft_level_split, pick_device
+from ..training.train_content import fit, train_loop
 
 
 def _card_keys(manifest_cards: list[dict]) -> list[str | None]:
@@ -77,6 +79,88 @@ def evaluate_on_set(model, parquet: str, device, novel_card: torch.Tensor | None
     return out
 
 
+def novel_mask_for_holdout(holdout_manifest: str, train_keys: set) -> torch.Tensor:
+    """Bool tensor over the holdout vocab: True where the card is absent from the training union."""
+    cards = json.load(open(holdout_manifest))["cards"]
+    keys = _card_keys(cards)
+    return torch.tensor([(k is None) or (k not in train_keys) for k in keys], dtype=torch.bool)
+
+
+def run_loso(
+    train_specs: list[dict], holdout_spec: dict,
+    embedder: str = "all-MiniLM-L6-v2", text: bool = True,
+    emb_dim: int = 256, enc_hidden: int = 512, enc_layers: int = 3, dropout: float = 0.1,
+    epochs: int = 10, batch_size: int = 512, lr: float = 1e-3, val_frac: float = 0.05,
+    device: str = "auto", checkpoint_dir: str = "data/checkpoints", seed: int = 0,
+    out_json: str | None = None,
+) -> dict:
+    """Leave-one-set-out: train on the union of train_specs, evaluate zero-shot on holdout_spec.
+
+    Each spec is {"parquet", "manifest", "scryfall"}.
+    """
+    emb = get_embedder(embedder)
+    gmat, ginfo, key_to_idx, l2gs = build_multiset_content(train_specs, embedder=emb, text=text)
+    hmat, hinfo = build_content_matrix(holdout_spec["manifest"], holdout_spec["scryfall"],
+                                       embedder=emb, text=text)
+    assert gmat.shape[1] == hmat.shape[1], (gmat.shape, hmat.shape)
+
+    torch.manual_seed(seed)
+    dev = pick_device(device)
+    print(f"device={dev}  global train matrix {tuple(gmat.shape)} from {ginfo['n_sets']} sets")
+
+    train_subsets, val_subsets = [], []
+    for spec, l2g in zip(train_specs, l2gs):
+        rds = RemappedDataset(DraftPickDataset(spec["parquet"]), l2g)
+        tr, va = draft_level_split(spec["parquet"], val_frac, seed)
+        train_subsets.append(Subset(rds, tr))
+        val_subsets.append(Subset(rds, va))
+    train_dl = DataLoader(ConcatDataset(train_subsets), batch_size=batch_size, shuffle=True,
+                          collate_fn=collate_picks)
+    val_dl = DataLoader(ConcatDataset(val_subsets), batch_size=batch_size, shuffle=False,
+                        collate_fn=collate_picks)
+    n_tr = sum(len(s) for s in train_subsets)
+    n_va = sum(len(s) for s in val_subsets)
+    print(f"picks: {n_tr} train / {n_va} val across {len(train_specs)} sets")
+
+    model = ContentDraftModel(torch.from_numpy(gmat), emb_dim=emb_dim, enc_hidden=enc_hidden,
+                              enc_layers=enc_layers, dropout=dropout).to(dev)
+    best = train_loop(model, train_dl, val_dl, dev, epochs=epochs, lr=lr,
+                      checkpoint_dir=checkpoint_dir, checkpoint_every=0,
+                      n_cards=ginfo["n_cards"], tag="loso", ckpt_prefix="loso")
+
+    novel = novel_mask_for_holdout(holdout_spec["manifest"], set(key_to_idx))
+    frac_novel = float(novel.float().mean())
+    model.set_content(torch.from_numpy(hmat))
+    cross = evaluate_on_set(model, holdout_spec["parquet"], dev, novel_card=novel)
+
+    results = {
+        "mode": "loso", "embedder": embedder, "text": text,
+        "n_train_sets": len(train_specs), "train_cards": ginfo["n_cards"],
+        "train_in_set_top1": best["top1"],
+        "holdout": {"parquet": holdout_spec["parquet"], "n_cards": hinfo["n_cards"],
+                    "frac_cards_novel": frac_novel, **cross},
+    }
+    _print_loso(results)
+    if out_json:
+        with open(out_json, "w") as f:
+            json.dump(results, f, indent=2, default=float)
+        print(f"\nwrote {out_json}")
+    return results
+
+
+def _print_loso(r: dict):
+    h = r["holdout"]
+    print("\n=== Leave-one-set-out report ===")
+    print(f"embedder: {r['embedder']}  text={r['text']}  train_sets={r['n_train_sets']}  "
+          f"train_cards={r['train_cards']}")
+    print(f"in-set (train union) val: top1={r['train_in_set_top1']:.4f}")
+    print(f"held-out (unseen set)   : top1={h['top1']:.4f}  mtpd={h['mtpd']:.3f}  n={h['n']}")
+    print(f"  novel-card picks      : top1={h.get('novel_top1', float('nan')):.4f}  "
+          f"n_novel={h.get('n_novel', 0)}  ({h['frac_cards_novel']*100:.0f}% of cards novel)")
+    print(f"  random floor          : {h['random_floor']:.4f}   "
+          f"(published: ~0.22 chance, ~0.55 pretrained — Bertram et al. 2024)")
+
+
 def run_experiment(
     train_parquet: str, train_manifest: str, train_scryfall: str,
     test_parquet: str, test_manifest: str, test_scryfall: str,
@@ -123,26 +207,30 @@ def _print_report(r: dict):
           f"(published bars: ~0.22 chance, ~0.55 pretrained, per Bertram et al. 2024)")
 
 
+def _spec(triple: str) -> dict:
+    """Parse a 'parquet,manifest,scryfall' triple into a spec dict."""
+    pq, man, scry = triple.split(",")
+    return {"parquet": pq.strip(), "manifest": man.strip(), "scryfall": scry.strip()}
+
+
 def main(argv=None):
     import argparse
 
-    ap = argparse.ArgumentParser(description="New-set generalization benchmark (train A -> test B)")
-    ap.add_argument("--train-parquet", required=True)
-    ap.add_argument("--train-manifest", required=True)
-    ap.add_argument("--train-scryfall", required=True)
-    ap.add_argument("--test-parquet", required=True)
-    ap.add_argument("--test-manifest", required=True)
-    ap.add_argument("--test-scryfall", required=True)
+    ap = argparse.ArgumentParser(
+        description="Leave-one-set-out generalization benchmark. Repeat --train for each "
+                    "training set; one --holdout. Each value is 'parquet,manifest,scryfall'.")
+    ap.add_argument("--train", action="append", required=True, metavar="PARQUET,MANIFEST,SCRYFALL")
+    ap.add_argument("--holdout", required=True, metavar="PARQUET,MANIFEST,SCRYFALL")
     ap.add_argument("--embedder", default="all-MiniLM-L6-v2")
+    ap.add_argument("--no-text", action="store_true", help="structured features only (ablation)")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--device", default="auto")
     ap.add_argument("--out-json", default=None)
     a = ap.parse_args(argv)
-    run_experiment(
-        a.train_parquet, a.train_manifest, a.train_scryfall,
-        a.test_parquet, a.test_manifest, a.test_scryfall,
-        embedder=a.embedder, out_json=a.out_json,
+    run_loso(
+        [_spec(t) for t in a.train], _spec(a.holdout),
+        embedder=a.embedder, text=not a.no_text, out_json=a.out_json,
         epochs=a.epochs, batch_size=a.batch_size, device=a.device,
     )
 

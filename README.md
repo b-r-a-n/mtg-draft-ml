@@ -156,9 +156,13 @@ uv run python -m mtg_draft_ml.eval.generalization \
     --embedder all-MiniLM-L6-v2 --epochs 12 --out-json results.json
 ```
 
-**First result (BLB → DSK, 98% novel cards):** cross-set top-1 ≈ **0.44–0.48** vs **0.233** random
-floor — ~2× the floor, in line with the published ~0.43 one-set bar. Full table and the (surprising)
-encoder ablation: [docs/results/phase1-generalization.md](docs/results/phase1-generalization.md).
+Repeat `--train` for multiple sets to run **leave-one-set-out** (train on many, hold one out).
+
+**Results (held-out DSK, 98% novel cards):** single-set BLB→DSK ≈ **0.44–0.48**; multi-set
+(BLB+OTJ+WOE+MKM → DSK) reaches **0.552** with the MiniLM text encoder — matching the published
+~0.55 bar, vs **0.233** random floor. Notably the encoder ranking *flips*: semantic text is worst
+single-set but best multi-set (it needs set diversity to pay off). Full tables + ablation:
+[docs/results/phase1-generalization.md](docs/results/phase1-generalization.md).
 
 See [docs/roadmap.md](docs/roadmap.md) for remaining Phase 1 work (multi-set training, feature
 standardization) and [docs/data-infra.md](docs/data-infra.md) for the storage plan.

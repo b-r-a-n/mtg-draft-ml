@@ -45,11 +45,43 @@ structured features are **not standardized** (raw CMC/pips vs unit-norm text —
 toward features); one set pair. These are enough to demonstrate generalization but not to rank
 encoders conclusively.
 
-## Next steps (Phase 1 → Phase 2)
+## Multi-set leave-one-set-out (the real test)
 
-- **Multi-set training** (the real point): train on many sets and leave one out, where the semantic
-  text encoder should start to pay off (toward the ~0.55 bar).
-- **Standardize structured features** (z-score) so text and features compete fairly; re-run the
-  ablation with matched text dims.
-- Multiple seeds + full (non-sampled) sets; add the WR-agreement metric (good-not-just-human).
-- Then Phase 2: Set Transformer pool encoder + contextual InfoNCE.
+**Experiment:** train on the union of **BLB + OTJ + WOE + MKM** (4 sets, 1,294 unique cards,
+~260k picks), hold out **DSK** entirely, evaluate zero-shot. Same model/hyperparameters; 10 epochs.
+
+Reproduce: `python -m mtg_draft_ml.eval.generalization --train … --train … --holdout … --embedder …`
+
+| Encoder | single-set (BLB→DSK) held-out top-1 | **multi-set LOSO (4→DSK) held-out top-1** | LOSO novel-only |
+|---|---|---|---|
+| Structured features only | 0.461 | 0.523 | 0.508 |
+| + hashing text | 0.478 | 0.531 | 0.512 |
+| + MiniLM text | 0.437 | **0.552** | **0.534** |
+
+(random floor 0.233; published ~0.55 pretrained bar.)
+
+### The headline findings
+
+1. **Multi-set training lifts generalization across the board** — held-out top-1 rose for every
+   encoder (features 0.461→0.523; MiniLM 0.437→0.552). Diversity in training sets ⇒ better transfer.
+2. **The encoder ranking FLIPPED, exactly as the research predicted.** Single-set: MiniLM was
+   *worst* (0.437 < features 0.461) — it overfit one set's flavor text. Multi-set: MiniLM is *best*
+   (0.552 > hashing 0.531 > features 0.523). **The semantic text encoder's value only materializes
+   with set diversity.** This is the single most important result of Phase 1.
+3. **Multi-set MiniLM (0.552) matches the published ~0.55 bar** — reached here with ~260k picks
+   rather than the ~100M-decision corpus cited (DSK likely shares structure/mechanics with the
+   training sets), but the qualitative story is exactly right.
+4. In-set val is slightly *lower* for the multi-set model (~0.588 vs single-set BLB 0.62) — one
+   model fitting 4 heterogeneous sets — yet it generalizes far better. The right trade.
+
+## Caveats (still apply)
+
+Single seed; sampled data; structured features unstandardized; text dims uncontrolled (256 vs 384);
+one holdout set. Conclusions are directional, not final rankings.
+
+## Next steps
+
+- **Multiple seeds + more / full sets + rotate the holdout** to tighten the ±.
+- **Standardize structured features** and match text dims for a fully fair ablation.
+- Add the **WR-agreement** metric (good-not-just-human) and win-rate weighting (DD-004).
+- **Phase 2:** Set Transformer pool encoder + contextual InfoNCE (the next accuracy lever).
