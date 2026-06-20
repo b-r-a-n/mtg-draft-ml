@@ -44,11 +44,38 @@ Reproduce: add `--win-weight {linear,exp} --win-beta B --holdout-ratings <17land
   the right pick (synergy, curve, signal). So WR-agreement is **directional**, not ground truth.
 - Single seed, sampled data, one holdout — treat deltas of <1 pt as suggestive.
 
+## Adjusted-WR auxiliary head (multi-task card-quality signal)
+
+A second head predicts each card's (per-set-standardized) GIH WR from its embedding; the loss is
+`pick_loss + λ·MSE(predicted_WR, target_WR)`. The aux head shares the card encoder, so it pushes the
+representation to encode *card quality*, not just pick-imitation. Targets built from 17lands ratings
+for the **training** sets; held-out unchanged.
+
+| config (set_transformer + ce) | in-set | held-out top-1 | novel-only | MTPD | WR-agreement | avg pick WR |
+|---|---|---|---|---|---|---|
+| baseline (no aux) | 0.6134 | 0.5626 | 0.5461 | 0.927 | 0.2553 | 0.5465 |
+| + aux-WR λ=0.5 | 0.6189 | 0.5737 | 0.5571 | 0.879 | 0.2565 | 0.5467 |
+| + aux-WR λ=1.0 | 0.6214 | **0.5744** | **0.5578** | 0.892 | 0.2547 | 0.5467 |
+| *human reference* | — | — | — | — | 0.2990 | 0.5509 |
+
+**Findings (a useful surprise):**
+1. **The aux head is the biggest single generalization gain since the Set Transformer** — held-out
+   0.5626 → **0.5744** (+1.2 pt), novel-only 0.546 → 0.558, MTPD 0.927 → 0.879. New best overall.
+   Robust to λ (0.5 ≈ 1.0).
+2. **But WR-agreement barely moved** (~0.255). So the aux head's value is *not* the targeted
+   "good-not-just-human" steering — it's that forcing the encoder to **predict card quality from
+   content** is a strong, transferable auxiliary task, yielding richer card embeddings that judge
+   *unseen* cards better. The benefit is generalization, not picking the single top-WR card more.
+3. Why WR-agreement stays flat: the pick is still driven by the imitation pointer head; the aux
+   signal improves the representation diffusely rather than re-pointing the policy at the top-WR
+   card — and GIH-WR-best is a noisy, confounded target anyway.
+
 ## Recommendation & next steps
 
-Adopt **gentle win-weighting (`exp β≈0.4`)** as a free improvement. For a real "good, not just
-human" gain (DD-004), go beyond deck-level wins:
-- **Auxiliary adjusted-WR head** — regress a confounder-adjusted card win rate as a multi-task
-  target, injecting card-quality signal directly into the representation.
-- **Soft-label distillation** from a win-rate-aware / ensemble teacher (DD-004).
-- Tighten with multiple seeds; consider per-game outcome signal from 17lands `game_data`.
+- **Adopt the aux-WR head (λ≈0.5–1.0)** — it's the current best model (held-out 0.574) and stacks
+  with the Set Transformer. Optionally combine with gentle win-weighting (`exp β≈0.4`).
+- To actually move *WR-agreement* (steer the policy, not just the representation): try a
+  pick-time blend of the aux quality score with the pointer logits, or **soft-label distillation**
+  from a win-rate-aware teacher (DD-004).
+- Use a less-confounded target (IWD `drawn_improvement_win_rate`, or a deck-adjusted WR).
+- Tighten with multiple seeds + rotating holdout.

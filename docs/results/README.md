@@ -13,6 +13,7 @@ bar** (Bertram et al. 2024). All runs: MPS, sampled 17lands data, single seed un
 | 1 | content encoder, MiniLM, **LOSO** | BLB+OTJ+WOE+MKM | DSK | 0.552 | multi-set — matches the ~0.55 bar |
 | 2 | + **Set Transformer** (in-pack CE) | BLB+OTJ+WOE+MKM | DSK | **0.563** | **current best** |
 | 3 | + win-weighting (exp β=0.4) | BLB+OTJ+WOE+MKM | DSK | 0.562 | top-1 flat; WR-agreement ↑ |
+| 3 | + **adjusted-WR aux head** (λ=1.0) | BLB+OTJ+WOE+MKM | DSK | **0.574** | **current best**; generalization ↑ |
 
 Each step is a real, measured improvement on a ~98%-novel held-out set. The Phase-0 baseline is
 omitted from the cross-set column because a fixed-vocabulary model has no parameters for unseen cards.
@@ -43,7 +44,12 @@ Phase 3 optimizes *pick quality* (WR-agreement), not human top-1 — see below.
 
 Gentle win-weighting nudges picks toward higher-WR cards at no top-1 cost; aggressive weighting
 backfires (data concentration). The model still trails humans on WR-agreement — deck-level
-`event_match_wins` is a weak lever; a card-level adjusted-WR head is the next step.
+`event_match_wins` is a weak lever.
+
+The **adjusted-WR auxiliary head** (predict each card's WR from its embedding, multi-task) is the
+bigger win: held-out 0.563 → **0.574** (best), novel-only 0.546 → 0.558 — but it boosts
+*generalization*, not WR-agreement (the shared encoder gets better at judging unseen cards, rather
+than re-steering the pick policy toward the top-WR card).
 
 ## Detailed docs
 

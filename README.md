@@ -170,8 +170,10 @@ InfoNCE *hurt* — the pack is the correct negative set, so `loss=ce` (≡ in-pa
 [docs/results/phase2-set-transformer-infonce.md](docs/results/phase2-set-transformer-infonce.md).
 
 **Phase 3 (good, not just human):** gentle win-rate weighting (`--win-weight exp --win-beta 0.4`)
-raises WR-agreement (taking the highest-GIH-WR card) at no top-1 cost; add `--holdout-ratings` to
-measure it. See [docs/results/phase3-winrate.md](docs/results/phase3-winrate.md).
+raises WR-agreement at no top-1 cost; the **adjusted-WR auxiliary head** (`--aux-wr 1.0`, predict
+each card's WR as a multi-task target) is the bigger win — held-out **0.574** (best), via better
+generalization. Add `--holdout-ratings` for WR-agreement. See
+[docs/results/phase3-winrate.md](docs/results/phase3-winrate.md).
 
 See [docs/roadmap.md](docs/roadmap.md) for remaining Phase 1 work (multi-set training, feature
 standardization) and [docs/data-infra.md](docs/data-infra.md) for the storage plan.
