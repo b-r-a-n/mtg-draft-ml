@@ -12,6 +12,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# uv installs to ~/.local/bin, which non-interactive shells don't add to PATH — ensure it's there.
+export PATH="$HOME/.local/bin:$PATH"
+
 HF_REPO="${HF_REPO:-b-r-a-n/mtg-draft}"
 HF_MODEL_REPO="${HF_MODEL_REPO:-}"   # e.g. b-r-a-n/mtg-draft-bot — to save the result off-pod
 D="${D:-data/hf}"

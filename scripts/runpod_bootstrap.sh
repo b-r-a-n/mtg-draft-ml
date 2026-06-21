@@ -12,8 +12,11 @@ set -euo pipefail
 # 1. uv (standalone installer — no system python needed)
 if ! command -v uv >/dev/null 2>&1; then
   curl -LsSf https://astral.sh/uv/install.sh | sh
-  export PATH="$HOME/.local/bin:$PATH"
 fi
+# Ensure uv is on PATH now AND in future (non-interactive) shells / SSH sessions.
+export PATH="$HOME/.local/bin:$PATH"
+grep -qs 'HOME/.local/bin' "$HOME/.bashrc" 2>/dev/null \
+  || echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
 
 # 2. get the code. If REPO is set and we're not already in the repo, clone + cd into it.
 #    Otherwise assume cwd is the repo root (the recommended clone-then-run flow).
