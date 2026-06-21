@@ -35,17 +35,13 @@ if [ ! -f pyproject.toml ]; then
   fi
 fi
 
-# 3. env.
-# IMPORTANT: pin torch to a cu124 build. RunPod host drivers lag the newest CUDA, and the DEFAULT
-# PyPI torch wheel is built for the latest CUDA (e.g. cu130) — too new for many pods' drivers, which
-# makes the GPU invisible to torch and causes a SILENT crash when libs (e.g. sentence-transformers)
-# touch CUDA. cu124 matches the runpod-torch template and works on driver 550+. Install it FIRST so
-# the package install sees torch already satisfied and won't pull the cu130 wheel.
+# 3. env. torch's CUDA build (cu124 on Linux) is pinned in pyproject.toml [tool.uv.sources], so a
+# plain sync gets a driver-compatible torch consistently — including under `uv run` auto-sync.
 uv venv
-uv pip install "torch>=2.2,<2.7" --index-url https://download.pytorch.org/whl/cu124
 uv pip install -e ".[dev,hub,embeddings]"
 
-# 4. sanity check — FATAL if the GPU isn't visible (better to abort here than crash silently later).
+# 4. sanity check via `uv run` (the same path training uses, so it catches any sync regression).
+#    FATAL if the GPU isn't visible — better to abort here than crash silently later.
 uv run python -c "import torch,sys; ok=torch.cuda.is_available(); print('CUDA:', ok, '|', torch.cuda.get_device_name(0) if ok else 'NO GPU VISIBLE', '| torch', torch.__version__); sys.exit(0 if ok else 1)" \
   || { echo 'FATAL: torch cannot see the GPU (driver/CUDA-wheel mismatch) — aborting bootstrap.'; exit 1; }
 

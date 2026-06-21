@@ -25,5 +25,18 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# Pin torch's CUDA build per platform so `uv` (sync/run/install) is CONSISTENT:
+#  - Linux (RunPod): cu124 — matches RunPod host drivers (550+). The DEFAULT PyPI torch wheel is
+#    built for the newest CUDA (cu130), which is too new for those drivers -> GPU invisible -> silent
+#    crash. Without this pin, `uv run` auto-sync silently reinstalls the cu130 wheel.
+#  - macOS (laptop): default PyPI wheel (MPS backend); the cu124 index is Linux-only.
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu124", marker = "sys_platform == 'linux'" }]
+
 [tool.ruff]
 line-length = 100
