@@ -847,9 +847,13 @@ dev = [
 embeddings = [
     { name = "sentence-transformers" },
 ]
+hub = [
+    { name = "huggingface-hub" },
+]
 
 [package.metadata]
 requires-dist = [
+    { name = "huggingface-hub", marker = "extra == 'hub'" },
     { name = "ipykernel", marker = "extra == 'dev'" },
     { name = "numpy" },
     { name = "pandas" },
@@ -862,7 +866,7 @@ requires-dist = [
     { name = "torch", specifier = ">=2.2" },
     { name = "tqdm" },
 ]
-provides-extras = ["embeddings", "dev"]
+provides-extras = ["embeddings", "hub", "dev"]
 
 [[package]]
 name = "narwhals"
