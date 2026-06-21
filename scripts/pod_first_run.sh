@@ -5,13 +5,19 @@
 #
 # Reproduces our best recipe (content encoder -> Set Transformer -> in-pack CE + aux-WR) on
 # 4 training sets, holding out DSK. Expect held-out top-1 ~0.57, far faster than the M1 laptop.
+#
+# AUTODELETE=1  -> terminate THIS pod via runpodctl after the run finishes (kills compute+storage
+#                 billing automatically). Off by default. The result JSON is pushed to HF first
+#                 (if HF_MODEL_REPO is set) so it survives the pod's deletion.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 HF_REPO="${HF_REPO:-b-r-a-n/mtg-draft}"
+HF_MODEL_REPO="${HF_MODEL_REPO:-}"   # e.g. b-r-a-n/mtg-draft-bot — to save the result off-pod
 D="${D:-data/hf}"
 SIZE="${SIZE:-60000}"
 EPOCHS="${EPOCHS:-10}"
+AUTODELETE="${AUTODELETE:-0}"
 
 # 1. Pull the dataset (public repo -> anonymous, no token needed; zero egress on RunPod).
 echo ">>> pulling $HF_REPO -> $D"
@@ -47,4 +53,25 @@ uv run python -m mtg_draft_ml.eval.generalization \
 
 echo
 echo ">>> done. Result JSON: pod_first_run_result.json"
-echo ">>> REMEMBER to DELETE the pod + volume when finished (storage bills while stopped)."
+
+# 4. Optionally save the result off-pod (so it survives deletion).
+if [ -n "$HF_MODEL_REPO" ]; then
+  echo ">>> uploading result to $HF_MODEL_REPO (needs: hf auth login)"
+  uv run hf upload "$HF_MODEL_REPO" pod_first_run_result.json pod_first_run_result.json \
+    --repo-type model || echo "WARN: upload failed (not logged in?); result is still on the pod"
+fi
+
+# 5. Optionally self-terminate to stop all billing.
+if [ "$AUTODELETE" = "1" ]; then
+  if command -v runpodctl >/dev/null 2>&1 && [ -n "${RUNPOD_POD_ID:-}" ]; then
+    echo ">>> AUTODELETE=1 -> terminating pod $RUNPOD_POD_ID in 10s (Ctrl-C to cancel)"
+    [ -z "$HF_MODEL_REPO" ] && echo "    NOTE: HF_MODEL_REPO unset — pod_first_run_result.json will be LOST on delete."
+    sleep 10
+    runpodctl remove pod "$RUNPOD_POD_ID"
+  else
+    echo "WARN: AUTODELETE=1 but runpodctl or \$RUNPOD_POD_ID unavailable — delete the pod manually."
+  fi
+else
+  echo ">>> REMEMBER to DELETE the pod + volume when finished (storage bills while stopped)."
+  echo "    (or re-run with AUTODELETE=1 to self-terminate; set HF_MODEL_REPO to save results first)"
+fi
