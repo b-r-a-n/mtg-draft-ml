@@ -16,7 +16,15 @@ from __future__ import annotations
 import pathlib
 
 DEFAULT_REPO = "mtg-draft"  # set to "<user>/mtg-draft" in configs/CLI
-_ALL_PATTERNS = ["draft/*.parquet", "manifests/*.json", "cards/*.parquet", "*.json"]
+# Canonical dataset layout. Precise per-dir patterns (NOT a broad top-level *.json, which would
+# sweep in experiment-output cruft and miss ratings/).
+_ALL_PATTERNS = [
+    "draft/*.parquet",      # compact integer-index pick shards
+    "manifests/*.json",     # per-set card vocab
+    "scryfall/*.json",      # per-set Scryfall card records (for the content encoder)
+    "ratings/*.json",       # 17lands GIH-WR ratings (for WR-agreement + aux-WR)
+    "cards/*.parquet",      # precomputed feature/embedding tables (future)
+]
 
 
 def shard_patterns(tag: str) -> list[str]:
