@@ -13,10 +13,15 @@ set -euo pipefail
 if ! command -v uv >/dev/null 2>&1; then
   curl -LsSf https://astral.sh/uv/install.sh | sh
 fi
-# Ensure uv is on PATH now AND in future (non-interactive) shells / SSH sessions.
+# Ensure uv is on PATH everywhere:
+#  - current shell + interactive shells (.bashrc)
+#  - non-interactive `ssh host 'cmd'` sessions, which do NOT source .bashrc — symlink into
+#    /usr/local/bin (on the default PATH for all shell types) so bare `uv ...` works over SSH.
 export PATH="$HOME/.local/bin:$PATH"
 grep -qs 'HOME/.local/bin' "$HOME/.bashrc" 2>/dev/null \
   || echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv 2>/dev/null || true
+ln -sf "$HOME/.local/bin/uvx" /usr/local/bin/uvx 2>/dev/null || true
 
 # 2. get the code. If REPO is set and we're not already in the repo, clone + cd into it.
 #    Otherwise assume cwd is the repo root (the recommended clone-then-run flow).
