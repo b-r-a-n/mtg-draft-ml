@@ -61,6 +61,8 @@ def fit(
     n_negatives: int = 512,
     win_weight: str = "none",
     win_beta: float = 0.3,
+    warmup_frac: float = 0.0,
+    grad_clip: float = 0.0,
     standardize: bool = False,
     epochs: int = 8,
     batch_size: int = 512,
@@ -94,13 +96,14 @@ def fit(
     best = train_loop(model, train_dl, val_dl, dev, epochs=epochs, lr=lr,
                       checkpoint_dir=checkpoint_dir, checkpoint_every=checkpoint_every,
                       n_cards=info["n_cards"], tag=manifest, loss=loss, n_negatives=n_negatives,
-                      win_weight=win_weight, win_beta=win_beta)
+                      win_weight=win_weight, win_beta=win_beta,
+                      warmup_frac=warmup_frac, grad_clip=grad_clip)
     return model, best
 
 
 def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, checkpoint_every,
                n_cards, tag, ckpt_prefix="content", loss="ce", n_negatives=512,
-               win_weight="none", win_beta=0.3,
+               win_weight="none", win_beta=0.3, warmup_frac=0.0, grad_clip=0.0,
                aux_wr_target=None, aux_wr_mask=None, aux_wr_lambda=0.0):
     """Shared epoch loop used by both single-set fit() and multi-set LOSO. Returns best metrics.
 
@@ -108,6 +111,8 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
     (contextual InfoNCE); loss="ce" is plain masked in-pack cross-entropy. win_weight!="none"
     weights each example by its draft's event_match_wins (advantage-weighted BC — DD-004).
     aux_wr_lambda>0 adds a multi-task win-rate regression head (MSE on aux_wr_target[aux_wr_mask]).
+    warmup_frac>0 linearly warms the LR over that fraction of total steps (stabilizes larger models);
+    grad_clip>0 clips gradient norm.
     """
     use_negs = loss == "infonce" and n_negatives > 0
     aux_on = aux_wr_lambda > 0 and aux_wr_target is not None
@@ -116,6 +121,8 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
         tt = torch.as_tensor(aux_wr_target, dtype=torch.float32, device=dev)
         mm = torch.as_tensor(aux_wr_mask, dtype=torch.bool, device=dev)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
+    total_steps = max(1, epochs * max(1, len(train_dl)))
+    warmup_steps = int(warmup_frac * total_steps)
     ckpt_dir = pathlib.Path(checkpoint_dir)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     step = 0
@@ -125,6 +132,9 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
         running = seen = 0.0
         aux_running = 0.0
         for b in train_dl:
+            if warmup_steps and step < warmup_steps:  # linear LR warmup
+                for g in opt.param_groups:
+                    g["lr"] = lr * (step + 1) / warmup_steps
             neg = torch.randint(0, n_cards, (n_negatives,), device=dev) if use_negs else None
             logits = model(b["pool"].to(dev), b["pool_mask"].to(dev),
                            b["pack"].to(dev), b["pack_mask"].to(dev), neg_idx=neg)
@@ -137,6 +147,8 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
                 aux_running += aux.item()
             opt.zero_grad()
             loss_v.backward()
+            if grad_clip:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
             opt.step()
             step += 1
             running += loss_v.item() * len(b["label"])

@@ -115,6 +115,7 @@ def run_loso(
     win_weight: str = "none", win_beta: float = 0.3, holdout_ratings: str | None = None,
     aux_wr: float = 0.0, aux_wr_field: str = "ever_drawn_win_rate",
     blend_alphas: list[float] | None = None, standardize_features: bool = False,
+    warmup_frac: float = 0.0, grad_clip: float = 0.0,
     epochs: int = 10, batch_size: int = 512, lr: float = 1e-3, val_frac: float = 0.05,
     device: str = "auto", checkpoint_dir: str = "data/checkpoints", seed: int = 0,
     out_json: str | None = None,
@@ -169,6 +170,7 @@ def run_loso(
                       checkpoint_dir=checkpoint_dir, checkpoint_every=0,
                       n_cards=ginfo["n_cards"], tag="loso", ckpt_prefix="loso",
                       loss=loss, n_negatives=n_negatives, win_weight=win_weight, win_beta=win_beta,
+                      warmup_frac=warmup_frac, grad_clip=grad_clip,
                       aux_wr_target=aux_target, aux_wr_mask=aux_mask, aux_wr_lambda=aux_wr)
 
     novel = novel_mask_for_holdout(holdout_spec["manifest"], set(key_to_idx))
@@ -326,6 +328,9 @@ def main(argv=None):
                     help="comma list of pick-time quality-blend alphas to sweep, e.g. 0,0.5,1,2")
     ap.add_argument("--standardize-features", action="store_true",
                     help="per-column z-score the content matrix (train stats applied to holdout)")
+    ap.add_argument("--warmup-frac", type=float, default=0.0,
+                    help="linear LR warmup over this fraction of steps (stabilizes larger models)")
+    ap.add_argument("--grad-clip", type=float, default=0.0, help="clip grad norm (0=off)")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--device", default="auto")
@@ -340,6 +345,7 @@ def main(argv=None):
         holdout_ratings=a.holdout_ratings, aux_wr=a.aux_wr, aux_wr_field=a.aux_wr_field,
         blend_alphas=[float(x) for x in a.blend_alphas.split(",")] if a.blend_alphas else None,
         standardize_features=a.standardize_features,
+        warmup_frac=a.warmup_frac, grad_clip=a.grad_clip,
         out_json=a.out_json, epochs=a.epochs, batch_size=a.batch_size, device=a.device,
     )
 
