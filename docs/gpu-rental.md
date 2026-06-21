@@ -63,11 +63,14 @@ unguaranteed GPU type, ~12h caps, idle timeouts, no SLA.
 Modal if you'd rather not manage instances at all. Budget is **single-digit-to-low-tens of $/month** —
 the GPU work was never going to be expensive; the model is tiny and the bottleneck is data loading.
 
-## Setup sketch (matches docs/data-infra.md)
+## Setup sketch (matches docs/data-infra.md; uv-based)
 
 1. Rent a RunPod **PyTorch** pod, 24GB GPU, **high vCPU/RAM**, ~30–50 GB volume.
-2. `pip install -e ".[hub,embeddings]"`; `huggingface-cli login` if pushing.
-3. `pull_dataset()` → local NVMe (zero egress on RunPod); train with checkpoints to an HF model repo.
-4. **Delete** the pod/volume when done (kills storage billing).
+2. Bootstrap with uv: `REPO=<git-url> bash scripts/runpod_bootstrap.sh` — installs uv, clones,
+   `uv venv` + `uv pip install -e ".[dev,hub,embeddings]"`, and checks the GPU is visible.
+   (On Linux this pulls the **CUDA** torch wheel automatically.)
+3. `huggingface-cli login` (only to push); `uv run python -m mtg_draft_ml.data.pipeline --pull …`
+   → local NVMe (zero egress on RunPod); train, checkpointing to an HF model repo.
+4. **Delete** the pod/volume when done (storage bills while stopped).
 
 *Pricing verified June 2026 via provider pages + getdeploying.com aggregator; spot rates fluctuate.*
