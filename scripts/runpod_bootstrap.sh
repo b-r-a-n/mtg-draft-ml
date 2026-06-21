@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Bootstrap a fresh RunPod pod to train mtg-draft-ml, using uv. Run on the pod:
-#   REPO=git@github.com:<you>/mtg-draft-ml.git bash runpod_bootstrap.sh
-# (or clone the repo first and just run `bash scripts/runpod_bootstrap.sh`)
+# Bootstrap a fresh RunPod pod to train mtg-draft-ml, using uv.
+#
+# Recommended (clone then run — robust):
+#   cd /workspace && git clone https://github.com/b-r-a-n/mtg-draft-ml.git \
+#     && cd mtg-draft-ml && bash scripts/runpod_bootstrap.sh
 #
 # Assumes a RunPod "PyTorch" pod (Ubuntu + CUDA). Picks the CUDA torch wheel automatically
 # on Linux. Choose a HIGH-vCPU/RAM instance — this workload is data-loading-bound, not FLOP-bound.
@@ -13,12 +15,17 @@ if ! command -v uv >/dev/null 2>&1; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
-# 2. get the code
+# 2. get the code. If REPO is set and we're not already in the repo, clone + cd into it.
+#    Otherwise assume cwd is the repo root (the recommended clone-then-run flow).
 REPO="${REPO:-}"
-if [ -n "$REPO" ] && [ ! -d mtg-draft-ml ]; then
-  git clone "$REPO" mtg-draft-ml
+if [ ! -f pyproject.toml ]; then
+  if [ -n "$REPO" ]; then
+    [ -d mtg-draft-ml ] || git clone "$REPO" mtg-draft-ml
+    cd mtg-draft-ml
+  else
+    echo "error: run from the repo root, or set REPO=<git-url>" >&2; exit 1
+  fi
 fi
-cd "$(dirname "$0")/.." 2>/dev/null || cd mtg-draft-ml
 
 # 3. env — installs CUDA torch from the default index on Linux.
 #    (Tip: `uv venv --system-site-packages` reuses the pod's preinstalled torch to skip a
