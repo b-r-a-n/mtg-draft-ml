@@ -48,6 +48,13 @@ to the last via the eval harness stood up in Phase 0.
 - *Search distillation:* distill the slow lookahead policy into the fast reactive network.
 - Gated on a usable simulator or rich enough outcome data; treat as experimental.
 
+## Phase 5 (plan) — Sequence modeling + capacity spectrum
+**Goal:** model the draft as a sequence (history of packs seen / cards passed) to capture
+signal-reading the memoryless model can't — the architectural lever that actually *uses* more data.
+Full plan + the parameter-scale tradeoff table: [phase5-sequence-modeling.md](phase5-sequence-modeling.md).
+Key finding: architectural richness (mean→set→sequence+value) is cheap (~1M→~23M, mostly laptop);
+the expensive, orthogonal axis is unfreezing/upgrading the text encoder (+23–110M, GPU).
+
 ## Parallel track — Card-design / editor tool
 **Goal:** interactive in-browser tool that embeds **novel typed oracle text** and estimates a
 card's power/value. (See [design-decisions.md](design-decisions.md) DD-005.)
