@@ -81,8 +81,39 @@ Single seed (`scripts/scaling_curve.py`).
 - **Locked recipe:** content encoder → Set Transformer → pointer head → in-pack CE + aux-WR head
   (λ≈1.0), **raw features**, optional pick-time quality blend. Generalization ~**0.54–0.57** to an
   unseen set (vs 0.233 floor, ~0.55 published bar); stable across seeds.
-- **The only lever left for *more* accuracy is model capacity, not data** — and you'd have to scale
-  capacity *and* data together (a bigger, costlier model with uncertain upside, and we're already at
-  the published bar). A cheap capacity probe (wider/deeper at 7 sets) is the next thing to try *if*
-  squeezing accuracy matters; otherwise we're done.
 - Standardization knob stays in code (`--standardize`) but off by default.
+
+## Capacity sweep — does a BIGGER model help? (No — and now properly tested)
+
+Two attempts (both on rented RunPod GPUs, 7 train sets → holdout DSK):
+
+**Attempt 1 (naive, fixed LR=1e-3, 12 epochs):** the M model *collapsed* — in-set 0.62 → 0.41.
+That's an **optimization failure, not a capacity verdict** (a bigger model that can't even fit train
+was mis-trained), so it didn't answer the question.
+
+**Attempt 2 (tuned: per-size LR + 10% LR warmup + grad-clip=1.0, 20 epochs):** bigger models now
+train correctly (no collapse). Definitive result:
+
+| config | params | lr | in-set | held-out | novel |
+|---|---|---|---|---|---|
+| S | ~2M | 1e-3 | 0.6241 | **0.5793** | 0.5636 |
+| M | ~8M | 5e-4 | 0.6263 | 0.5772 | 0.5612 |
+| L | ~15M | 3e-4 | 0.6263 | 0.5772 | 0.5612 |
+
+**Conclusion: capacity is NOT the lever.** With proper optimization, bigger models fit train
+*slightly* better (in-set 0.624 → 0.626) but **held-out generalization is flat** (0.579 / 0.577 /
+0.577 — S is marginally best, all within noise). We are at a **task/data ceiling (~0.58) for this
+problem framing**, not capacity-limited. More parameters won't break it.
+
+**Routing decision:** since neither more data (scaling curve) nor more capacity (this sweep) breaks
+~0.58, the remaining lever is **inputs** — the Phase-5 sequence model that adds the signal-reading
+information channel the memoryless model can't see ([../phase5-sequence-modeling.md](../phase5-sequence-modeling.md)).
+That, not a bigger model, is the next thing to try if we want past ~0.58.
+
+### Infra footnote (the debugging that made this run possible)
+The capacity sweep crashed silently several times before this clean run. Root cause was **not**
+flakiness: `uv run` auto-syncs the venv and re-resolved `torch>=2.2` to the latest PyPI wheel
+(2.12.1+**cu130**, CUDA 13), too new for RunPod host drivers (e.g. 575 = CUDA 12.9) → GPU invisible →
+silent crash on first CUDA use. Hosts with newer drivers (580) happened to work, masking it as
+"flakiness." Fixed by pinning torch to the **cu124 index for Linux** in `pyproject.toml`
+`[tool.uv.sources]` (macOS keeps the default MPS wheel) + a **fatal** GPU check in the bootstrap.

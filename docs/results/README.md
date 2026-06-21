@@ -69,9 +69,13 @@ raw feature scale. **Not adopted** (kept as an off-by-default `--standardize` fl
 **Data-scaling curve (holdout DSK): saturates at ~3–4 sets.** 1→2 sets +9.6 pt, but 4→7 sets
 (nearly 2× data) only +0.15 pt — within noise. The small model is **data-saturated, not
 data-limited**, so the **full-corpus GPU run is NOT justified for accuracy** — train the deployable
-model on the laptop on ~4–7 diverse sets. The only remaining accuracy lever is model *capacity*
-(scaled with data), not data alone. Recipe locked: content encoder → Set Transformer → in-pack CE +
-aux-WR (raw features).
+model on the laptop on ~4–7 diverse sets.
+
+**Capacity sweep (tuned, on GPU): bigger models do NOT help either.** With per-size LR + warmup +
+grad-clip (fixing an earlier fixed-LR collapse), S/M/L (2M/8M/15M) give held-out 0.579/0.577/0.577 —
+flat. **Neither more data nor more capacity breaks ~0.58** → we're at a task/data ceiling for this
+framing. The remaining lever is **inputs** (Phase-5 sequence model / signal-reading), not parameters.
+Recipe locked: content encoder → Set Transformer → in-pack CE + aux-WR (raw features).
 
 ## Detailed docs
 
