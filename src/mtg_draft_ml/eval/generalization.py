@@ -309,6 +309,9 @@ def main(argv=None):
     ap.add_argument("--embedder", default="all-MiniLM-L6-v2")
     ap.add_argument("--no-text", action="store_true", help="structured features only (ablation)")
     ap.add_argument("--pool", default="mean", choices=["mean", "set_transformer"])
+    ap.add_argument("--emb-dim", type=int, default=256)
+    ap.add_argument("--enc-hidden", type=int, default=512)
+    ap.add_argument("--enc-layers", type=int, default=3)
     ap.add_argument("--n-heads", type=int, default=4)
     ap.add_argument("--n-sab", type=int, default=1)
     ap.add_argument("--loss", default="ce", choices=["ce", "infonce"])
@@ -330,7 +333,9 @@ def main(argv=None):
     a = ap.parse_args(argv)
     run_loso(
         [_spec(t) for t in a.train], _spec(a.holdout),
-        embedder=a.embedder, text=not a.no_text, pool=a.pool, n_heads=a.n_heads, n_sab=a.n_sab,
+        embedder=a.embedder, text=not a.no_text, pool=a.pool,
+        emb_dim=a.emb_dim, enc_hidden=a.enc_hidden, enc_layers=a.enc_layers,
+        n_heads=a.n_heads, n_sab=a.n_sab,
         loss=a.loss, n_negatives=a.n_negatives, win_weight=a.win_weight, win_beta=a.win_beta,
         holdout_ratings=a.holdout_ratings, aux_wr=a.aux_wr, aux_wr_field=a.aux_wr_field,
         blend_alphas=[float(x) for x in a.blend_alphas.split(",")] if a.blend_alphas else None,
