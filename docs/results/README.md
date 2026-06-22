@@ -78,6 +78,19 @@ flat. **Neither more data nor more capacity breaks ~0.58** → we're at a task/d
 framing. The remaining lever is **inputs** (Phase-5 sequence model / signal-reading), not parameters.
 Recipe locked: content encoder → Set Transformer → in-pack CE + aux-WR (raw features).
 
+## Probes
+
+- **Human-disagreement probe** ([human-disagreement-probe.md](human-disagreement-probe.md)) —
+  tests whether ~0.58 is irreducible human noise. Pairwise human agreement collapses from 0.85
+  (early) to 0.68 (mid-pack, 31% near-coinflip); the model's errors concentrate in exactly that
+  mid-pack region; pure popularity scores only 0.41 (so the model is genuinely contextual).
+  **Conclusion: ~0.58 is largely a human-noise ceiling; the lever with headroom is the win-rate
+  objective, not human-pick accuracy.**
+- **Objective experiment** (`scripts/pod_objective_sweep.py`) — win-rate blend × IWD-vs-GIH target.
+  IWD (less-confounded) gives a much steeper win-rate frontier: at α=1, WR-agreement 0.25→0.29 for
+  ~free top-1; pushes to 0.40 at α=8. **Recommended for "good, not just human": IWD aux target +
+  modest blend (α≈1–2).**
+
 ## Detailed docs
 
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the
