@@ -248,7 +248,8 @@ def _print_loso(r: dict):
     print(f"embedder: {r['embedder']}  text={r['text']}  pool={r['pool']}  loss={r['loss']}  "
           f"train_sets={r['n_train_sets']}  train_cards={r['train_cards']}")
     print(f"in-set (train union) val: top1={r['train_in_set_top1']:.4f}")
-    print(f"held-out (unseen set)   : top1={h['top1']:.4f}  mtpd={h['mtpd']:.3f}  n={h['n']}")
+    print(f"held-out (unseen set)   : top1={h['top1']:.4f}  top3={h.get('top3', float('nan')):.4f}  "
+          f"top5={h.get('top5', float('nan')):.4f}  mtpd={h['mtpd']:.3f}  n={h['n']}")
     print(f"  novel-card picks      : top1={h.get('novel_top1', float('nan')):.4f}  "
           f"n_novel={h.get('n_novel', 0)}  ({h['frac_cards_novel']*100:.0f}% of cards novel)")
     print(f"  random floor          : {h['random_floor']:.4f}   "
