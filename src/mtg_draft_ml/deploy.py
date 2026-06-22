@@ -35,7 +35,14 @@ class Drafter:
         for i, n in enumerate(names):
             if " // " in n:
                 self.name_to_idx.setdefault(n.split(" // ", 1)[0], i)
-        self.quality = torch.as_tensor(np.nan_to_num(np.asarray(quality, dtype="float32")))
+        # Standardize the dial signal (z-score over rated cards) so `aggressiveness` means the same
+        # thing regardless of the quality source's raw scale (raw IWD ~±0.03 vs aux-head outputs).
+        q = np.asarray(quality, dtype="float32")
+        finite = np.isfinite(q)
+        if finite.any():
+            mu, sd = float(q[finite].mean()), float(q[finite].std())
+            q = (q - mu) / (sd if sd > 1e-6 else 1.0)
+        self.quality = torch.as_tensor(np.nan_to_num(q))
         self.config = config
         self.device = device
 
