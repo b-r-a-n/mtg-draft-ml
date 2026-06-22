@@ -73,6 +73,22 @@ Single seed (`scripts/scaling_curve.py`).
 (nearly 2× the data, +950 cards) accuracy moves **+0.15 pt — within noise.** The small model is
 **data-saturated, not data-limited** — it lacks the capacity to exploit more data.
 
+## Depth-scaling test (the untested axis): 8× more picks/set also does nothing
+
+The scaling curve above varied SET COUNT at a fixed 60k picks/set. The other axis — depth per set —
+was untested (we always sampled to 60k; full sets are millions). Tested the landed recipe
+(set_transformer + IWD advantage-weighting) at 60k vs 500k picks/set, 4 sets → DSK:
+
+| depth (total picks) | top-1 | top-3 | top-5 | WR-agree (IWD) |
+|---|---|---|---|---|
+| 60k/set (250k) | 0.560 | 0.875 | 0.963 | 0.288 |
+| 500k/set (2.0M) | 0.553 | 0.873 | 0.961 | 0.298 |
+
+**Flat on every metric** (top-1/3/5 and win-rate), despite 8× the data. The model is data-saturated
+on BOTH axes (set count and depth), on BOTH human-imitation and fair top-k/win-rate metrics.
+Five independent levers now exhausted: more sets, more depth, more capacity, sequence inputs,
+pool-conditioning. A laptop-trained model on sampled sets is at the frontier.
+
 ## Decision — the GPU full-corpus run is NOT justified (for accuracy)
 
 - **More data won't help at this (deployable, ~10M-param) model size.** The full-corpus GPU run
