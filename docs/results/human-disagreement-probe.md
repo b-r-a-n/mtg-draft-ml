@@ -51,3 +51,37 @@ chasing noise. The lever with real headroom is the **objective** — optimizing 
 pick-time quality blend, especially with the less-confounded IWD target) lets the bot make
 *better-than-human* picks even though it can't predict humans better. That's the right goal for a
 drafting bot, and it's where effort should go.
+
+---
+
+## CORRECTION / EXTENSION: the context-blind probe overstated irreducibility
+
+The pairwise probe above is **context-blind** — it lumps together drafters in different archetypes
+facing the same pack. A red-aggro and a blue-control drafter *should* pick differently; that's pool
+context, not noise. Conditioning on the pool changes the picture a lot.
+
+**Pool-conditioned agreement (the right test).** Among mid-pack cross-color contested decisions where
+the drafter's pool *clearly leans* toward one card's colors, the human takes the **pool-favored card
+89.3%** of the time — vs 67.5% unconditioned, vs 50% if colors were irrelevant. Humans are highly
+consistent *given their pool*.
+
+**How much does pool context explain?** A simple pool-color-aware popularity heuristic vs context-blind:
+
+| model | overall top-1 | mid-pack |
+|---|---|---|
+| context-blind popularity | 0.412 | 0.315 |
+| + pool-color awareness | 0.504 | 0.425 |
+| our content model | ~0.62 in-set | ~0.45 |
+
+Pool *colors alone* add ~+9 pts overall / +11 mid-pack. Our model (0.62) sits above the color
+heuristic, so its pool encoder already uses color **and** more (synergy/curve/quality).
+
+**Revised conclusion.** The ~0.58 plateau is **not** pure irreducible noise — much of the apparent
+mid-pack disagreement is pool-explainable structure, and the model captures a large part of it. The
+plateau means the model is near *its* ceiling under the current framing, but the task has more
+exploitable structure than the context-blind probe implied. **Open, decisive question:** does the
+model exploit pool context *as well as humans* (who follow pool-lean ~0.89), or is it leaving
+pool-conditioning signal on the table? That requires measuring the **trained model's** pool-follow
+rate on the same color-lean decisions — the next experiment. If the model lags humans there, the
+real headroom lever is **better pool-conditioning** (explicit archetype/color-commitment signal),
+not more data/capacity/sequence (all already shown flat).
