@@ -12,9 +12,17 @@ each card in the current pack.
 
 ## Status
 
-🟢 **Phase 0 data pipeline implemented** (download → compact Parquet → streaming loader),
-validated on real 17lands data. Baseline model + training loop are next. Research synthesis and
-the full design live under `docs/`.
+🟢 **Research complete; deployable model packaged.** Full pipeline (data → content encoder → Set
+Transformer → IWD advantage-weighted training → eval) validated on real 17lands data, generalizing
+to unseen sets at ~0.57 top-1, with a deployable `Drafter` (aggressiveness dial). **Start with
+[docs/SUMMARY.md](docs/SUMMARY.md)** for the consolidated story and results.
+
+```python
+from mtg_draft_ml.deploy import Drafter
+d = Drafter.load("data/bundles/BLB")
+d.pick(pool=["Mountain", "Shock"], pack=["Murder", "Llanowar Elves", "Lava Spike"],
+       aggressiveness=0.0)   # 0 = human-like; higher = bias toward winning cards
+```
 
 ## Where to start reading
 
