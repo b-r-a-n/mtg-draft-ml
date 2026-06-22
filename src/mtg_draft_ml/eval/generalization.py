@@ -114,6 +114,7 @@ def run_loso(
     loss: str = "ce", n_negatives: int = 512,
     win_weight: str = "none", win_beta: float = 0.3, holdout_ratings: str | None = None,
     aux_wr: float = 0.0, aux_wr_field: str = "ever_drawn_win_rate",
+    wr_metric_field: str | None = None,
     blend_alphas: list[float] | None = None, standardize_features: bool = False,
     warmup_frac: float = 0.0, grad_clip: float = 0.0,
     epochs: int = 10, batch_size: int = 512, lr: float = 1e-3, val_frac: float = 0.05,
@@ -178,7 +179,9 @@ def run_loso(
     card_wr = None
     if holdout_ratings is not None:
         from .winrate import align_winrates
-        card_wr = align_winrates(holdout_spec["manifest"], holdout_ratings)
+        # measure WR-agreement against wr_metric_field (defaults to the aux target field, else GIH)
+        metric_field = wr_metric_field or (aux_wr_field if aux_wr > 0 else "ever_drawn_win_rate")
+        card_wr = align_winrates(holdout_spec["manifest"], holdout_ratings, field=metric_field)
     model.set_content(torch.from_numpy(hmat))
     cross = evaluate_on_set(model, holdout_spec["parquet"], dev, novel_card=novel, card_wr=card_wr)
 
