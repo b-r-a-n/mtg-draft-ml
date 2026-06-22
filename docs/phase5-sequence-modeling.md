@@ -1,7 +1,35 @@
-# Phase 5 (plan) — sequence modeling + the capacity spectrum
+# Phase 5 — sequence modeling + the capacity spectrum
 
-Status: **plan, not built.** Motivated by the Phase-4 finding that the current model is
-data-saturated at ~3–4 sets (`docs/results/phase4-robustness.md`).
+Status: **built and tested.** First LOSO result below.
+
+## Result (first run): signal-reading did NOT break the ~0.58 ceiling
+
+Sequence model (causal transformer over pack-seen/pick-made steps), **same 4-set → DSK setup** as the
+set-model baselines, MiniLM, 12 epochs:
+
+| model (4 sets → DSK) | held-out top-1 |
+|---|---|
+| set: mean-pool (Phase 1) | 0.552 |
+| set: Set Transformer (Phase 2) | 0.563 |
+| set: + aux-WR (Phase 3) | 0.574 |
+| **sequence model (Phase 5)** | **0.5739** |
+
+**The sequence model ties the best set-model (~0.574) — it does not beat it.** Adding the
+signal-reading channel (what you saw and passed) did **not** raise held-out pick accuracy. Combined
+with the data-scaling saturation and the capacity sweep (both flat at ~0.58), this is strong evidence
+that **~0.58 is a genuine task-noise floor** for predicting the *human* pick on this data — not a
+limitation of capacity, data, or (now) inputs. The human pick is partly irreducibly unpredictable.
+
+**Caveats:** first, lightly-tuned sequence model (n_layers=2, 12 epochs); the signal-reading benefit
+may be real-but-small and masked by the sequence model's harder optimization, or need more data. But
+the *ceiling* is consistent across all three levers tried (data, capacity, inputs).
+
+**Implication:** top-1 human-pick accuracy is near its ceiling (~0.58) for this framing. Further gains
+need a *different objective* (the pick-time quality blend already exceeds humans on WR-agreement) or
+*more/cleaner data* — not a fancier architecture. The deployable model is about as good as this
+framing allows.
+
+---
 
 ## Why: the signal the current model can't see
 

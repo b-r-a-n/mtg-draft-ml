@@ -13,7 +13,8 @@ bar** (Bertram et al. 2024). All runs: MPS, sampled 17lands data, single seed un
 | 1 | content encoder, MiniLM, **LOSO** | BLB+OTJ+WOE+MKM | DSK | 0.552 | multi-set — matches the ~0.55 bar |
 | 2 | + **Set Transformer** (in-pack CE) | BLB+OTJ+WOE+MKM | DSK | **0.563** | **current best** |
 | 3 | + win-weighting (exp β=0.4) | BLB+OTJ+WOE+MKM | DSK | 0.562 | top-1 flat; WR-agreement ↑ |
-| 3 | + **adjusted-WR aux head** (λ=1.0) | BLB+OTJ+WOE+MKM | DSK | **0.574** | **current best**; generalization ↑ |
+| 3 | + **adjusted-WR aux head** (λ=1.0) | BLB+OTJ+WOE+MKM | DSK | **0.574** | best set-model; generalization ↑ |
+| 5 | sequence model (signal-reading) | BLB+OTJ+WOE+MKM | DSK | 0.574 | ties — does NOT break the ~0.58 ceiling |
 
 Each step is a real, measured improvement on a ~98%-novel held-out set. The Phase-0 baseline is
 omitted from the cross-set column because a fixed-vocabulary model has no parameters for unseen cards.
