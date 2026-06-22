@@ -88,8 +88,12 @@ Recipe locked: content encoder → Set Transformer → in-pack CE + aux-WR (raw 
   objective, not human-pick accuracy.**
 - **Objective experiment** (`scripts/pod_objective_sweep.py`) — win-rate blend × IWD-vs-GIH target.
   IWD (less-confounded) gives a much steeper win-rate frontier: at α=1, WR-agreement 0.25→0.29 for
-  ~free top-1; pushes to 0.40 at α=8. **Recommended for "good, not just human": IWD aux target +
-  modest blend (α≈1–2).**
+  ~free top-1; pushes to 0.40 at α=8.
+- **IWD advantage-weighted objective** (`scripts/pod_adv_objective.py`) — weight imitation by how good
+  the human's pick was (IWD vs pack). Flips the model from *lagging* humans (0.257 < human 0.278) to
+  **beating** them (τ=0.03 → 0.295 > 0.278) at ~2pt top-1 cost (0.571→0.548), baked into training (no
+  runtime dial). **Recommended "good, not just human" recipe: IWD advantage-weighting (τ≈0.03),
+  optionally + the IWD blend as a runtime aggressiveness dial.**
 
 ## Detailed docs
 
