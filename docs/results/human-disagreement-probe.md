@@ -82,6 +82,30 @@ plateau means the model is near *its* ceiling under the current framing, but the
 exploitable structure than the context-blind probe implied. **Open, decisive question:** does the
 model exploit pool context *as well as humans* (who follow pool-lean ~0.89), or is it leaving
 pool-conditioning signal on the table? That requires measuring the **trained model's** pool-follow
-rate on the same color-lean decisions — the next experiment. If the model lags humans there, the
-real headroom lever is **better pool-conditioning** (explicit archetype/color-commitment signal),
-not more data/capacity/sequence (all already shown flat).
+rate on the same color-lean decisions — done below.
+
+## RESOLVED: the model exploits pool context as well as humans (no headroom there)
+
+`scripts/pool_follow_test.py` trains an in-set BLB model (set_transformer, val top-1 0.64) and
+computes the SAME pool-follow metric using the **model's** pick, on held-out drafts:
+
+| | pool-follow rate (mid-pack, cross-color, pool clearly leans) |
+|---|---|
+| human | 0.897 |
+| **model** | **0.921** |
+
+**The model follows pool-lean *more* strongly than humans (+0.025).** It is not under-using pool
+context — if anything it over-indexes on staying on-color (humans splash/pivot a bit more). The
+pool-conditioning headroom hypothesis is **falsified**.
+
+### Final synthesis on the ceiling
+- The context-blind disagreement number (0.68 mid-pack) overstated noise — **most apparent
+  disagreement is pool-explainable** (humans agree ~0.90 given pool). *(User's critique — correct.)*
+- **But the model already captures pool context fully** (0.92 ≥ human 0.90) and still tops out at
+  ~0.58 LOSO / ~0.64 in-set.
+- So the residual ceiling is **genuinely near-irreducible**: after conditioning on pool as well as
+  humans, the remaining decisions (on-color cards of similar quality) carry real preference variation
+  a pick-predictor can't resolve.
+- **All four levers — data, capacity, inputs (sequence), pool-conditioning — are exhausted.** Raising
+  human-pick top-1 further is chasing noise; the lever with headroom is the **objective** (win-rate
+  optimization via the IWD-target blend), which makes *better-than-human* picks.
