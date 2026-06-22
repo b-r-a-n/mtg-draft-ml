@@ -7,7 +7,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from mtg_draft_ml.eval.winrate import WRMeter, align_winrates  # noqa: E402
-from mtg_draft_ml.training.losses import win_rate_weights  # noqa: E402
+from mtg_draft_ml.training.losses import pick_advantage_weights, win_rate_weights  # noqa: E402
 
 
 def test_win_rate_weights_schemes():
@@ -53,6 +53,25 @@ def test_wr_meter_agreement_and_avg():
     assert out["wr_agreement_human"] == 1.0        # human took it
     assert out["avg_pick_wr_model"] == pytest.approx(0.55)
     assert out["avg_pick_wr_human"] == pytest.approx(0.60)
+
+
+def test_pick_advantage_weights():
+    # 3 cards, WR = [0.5, 0.6, 0.4] (card1 best). Weights are batch-normalized to mean 1, so the
+    # meaningful test is WITHIN a batch: best-pick example upweighted vs worst-pick example.
+    wr = [0.5, 0.6, 0.4]; mask = [True, True, True]
+    pk2 = torch.tensor([[0, 1, 2], [0, 1, 2]])
+    pm2 = torch.tensor([[True, True, True], [True, True, True]])
+    w = pick_advantage_weights(torch.tensor([1, 2]), pk2, pm2, wr, mask, tau=0.05)  # picks: best, worst
+    assert abs(w.mean().item() - 1.0) < 1e-5      # normalized to mean 1
+    assert w[0] > 1.0 > w[1]                       # best-pick upweighted, worst-pick downweighted
+
+
+def test_pick_advantage_unrated_is_neutral():
+    wr = [0.5, float("nan"), 0.4]; mask = [True, False, True]
+    pack = torch.tensor([[0, 1, 2], [0, 1, 2]]); pm = torch.tensor([[True]*3, [True]*3])
+    # picking the unrated card (1) -> neutral weight 1 (pre-normalization); after norm still finite
+    w = pick_advantage_weights(torch.tensor([1, 0]), pack, pm, wr, mask, tau=0.05)
+    assert torch.isfinite(w).all()
 
 
 def test_wr_meter_requires_two_rated_cards():

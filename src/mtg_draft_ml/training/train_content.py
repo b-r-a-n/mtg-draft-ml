@@ -29,7 +29,7 @@ from ..cards.text_embed import get_embedder
 from ..data.dataset import DraftPickDataset, collate_picks
 from ..eval.metrics import PickEvaluator
 from ..models.draft_model import ContentDraftModel
-from .losses import pick_cross_entropy, win_rate_weights
+from .losses import pick_advantage_weights, pick_cross_entropy, win_rate_weights
 from .train import _midpack_acc, _save, draft_level_split, pick_device
 
 
@@ -63,6 +63,9 @@ def fit(
     win_beta: float = 0.3,
     warmup_frac: float = 0.0,
     grad_clip: float = 0.0,
+    adv_target=None,
+    adv_mask=None,
+    adv_tau: float = 0.0,
     standardize: bool = False,
     epochs: int = 8,
     batch_size: int = 512,
@@ -97,14 +100,16 @@ def fit(
                       checkpoint_dir=checkpoint_dir, checkpoint_every=checkpoint_every,
                       n_cards=info["n_cards"], tag=manifest, loss=loss, n_negatives=n_negatives,
                       win_weight=win_weight, win_beta=win_beta,
-                      warmup_frac=warmup_frac, grad_clip=grad_clip)
+                      warmup_frac=warmup_frac, grad_clip=grad_clip,
+                      adv_target=adv_target, adv_mask=adv_mask, adv_tau=adv_tau)
     return model, best
 
 
 def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, checkpoint_every,
                n_cards, tag, ckpt_prefix="content", loss="ce", n_negatives=512,
                win_weight="none", win_beta=0.3, warmup_frac=0.0, grad_clip=0.0,
-               aux_wr_target=None, aux_wr_mask=None, aux_wr_lambda=0.0):
+               aux_wr_target=None, aux_wr_mask=None, aux_wr_lambda=0.0,
+               adv_target=None, adv_mask=None, adv_tau=0.0):
     """Shared epoch loop used by both single-set fit() and multi-set LOSO. Returns best metrics.
 
     loss="infonce" appends `n_negatives` shared global negatives to each example's pack logits
@@ -116,6 +121,7 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
     """
     use_negs = loss == "infonce" and n_negatives > 0
     aux_on = aux_wr_lambda > 0 and aux_wr_target is not None
+    adv_on = adv_tau > 0 and adv_target is not None
     tt = mm = None
     if aux_on:
         tt = torch.as_tensor(aux_wr_target, dtype=torch.float32, device=dev)
@@ -140,6 +146,10 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
                            b["pack"].to(dev), b["pack_mask"].to(dev), neg_idx=neg)
             weights = (win_rate_weights(b["wins"].to(dev), scheme=win_weight, beta=win_beta)
                        if win_weight != "none" else None)
+            if adv_on:
+                aw = pick_advantage_weights(b["pick_idx"].to(dev), b["pack"].to(dev),
+                                            b["pack_mask"].to(dev), adv_target, adv_mask, tau=adv_tau)
+                weights = aw if weights is None else weights * aw
             loss_v = pick_cross_entropy(logits, b["label"].to(dev), weights=weights)
             if aux_on:
                 aux = F.mse_loss(model.card_quality()[mm], tt[mm])

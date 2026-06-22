@@ -114,6 +114,7 @@ def run_loso(
     loss: str = "ce", n_negatives: int = 512,
     win_weight: str = "none", win_beta: float = 0.3, holdout_ratings: str | None = None,
     aux_wr: float = 0.0, aux_wr_field: str = "ever_drawn_win_rate",
+    adv_tau: float = 0.0, adv_field: str = "drawn_improvement_win_rate",
     wr_metric_field: str | None = None,
     blend_alphas: list[float] | None = None, standardize_features: bool = False,
     warmup_frac: float = 0.0, grad_clip: float = 0.0,
@@ -164,6 +165,16 @@ def run_loso(
         print(f"aux-WR head: {int(aux_mask.sum())}/{ginfo['n_cards']} cards have a WR target "
               f"(field={aux_wr_field}, λ={aux_wr})")
 
+    adv_target = adv_mask = None
+    if adv_tau > 0:
+        from .winrate import build_global_wr_targets
+        rating_specs = [{"manifest": s["manifest"], "ratings": s["ratings"]} for s in train_specs]
+        # RAW win rate (not standardized): advantage is within-pack relative, so raw is the right scale
+        adv_target, adv_mask = build_global_wr_targets(rating_specs, l2gs, ginfo["n_cards"],
+                                                       field=adv_field, standardize=False)
+        print(f"advantage-weighting: field={adv_field}, tau={adv_tau}, "
+              f"{int(adv_mask.sum())}/{ginfo['n_cards']} cards rated")
+
     model = ContentDraftModel(torch.from_numpy(gmat), emb_dim=emb_dim, enc_hidden=enc_hidden,
                               enc_layers=enc_layers, dropout=dropout, pool=pool,
                               n_heads=n_heads, n_sab=n_sab, aux_wr=aux_wr > 0).to(dev)
@@ -172,7 +183,8 @@ def run_loso(
                       n_cards=ginfo["n_cards"], tag="loso", ckpt_prefix="loso",
                       loss=loss, n_negatives=n_negatives, win_weight=win_weight, win_beta=win_beta,
                       warmup_frac=warmup_frac, grad_clip=grad_clip,
-                      aux_wr_target=aux_target, aux_wr_mask=aux_mask, aux_wr_lambda=aux_wr)
+                      aux_wr_target=aux_target, aux_wr_mask=aux_mask, aux_wr_lambda=aux_wr,
+                      adv_target=adv_target, adv_mask=adv_mask, adv_tau=adv_tau)
 
     novel = novel_mask_for_holdout(holdout_spec["manifest"], set(key_to_idx))
     frac_novel = float(novel.float().mean())
