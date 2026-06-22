@@ -40,3 +40,6 @@ torch = [{ index = "pytorch-cu124", marker = "sys_platform == 'linux'" }]
 
 [tool.ruff]
 line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]   # scripts/ are runnable entry points, not tests
