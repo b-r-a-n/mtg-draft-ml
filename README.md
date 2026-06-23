@@ -125,6 +125,12 @@ uv run python -m mtg_draft_ml.data.hf pull --repo <user>/mtg-draft --revision <s
 
 Pin `--hf-revision` / `--revision` for reproducible train/val and leave-one-set-out splits.
 
+**GPU pod (RunPod):** `scripts/runpod_launch.sh` creates a pod and prints a ready-to-use SSH
+connection; `scripts/pod_distill_suite.sh` runs the full distillation suite on it. The end-to-end
+flow + the non-obvious gotchas (secure-vs-community SSH, GPU-availability probing, finding the SSH
+port via GraphQL, `nohup … < /dev/null`, **always `runpodctl remove pod` when done**) are in
+[docs/runpod-runbook.md](docs/runpod-runbook.md).
+
 ## Train the Phase-1 content model
 
 Content card encoder (Scryfall structured features + frozen oracle-text embedding) → masked
