@@ -53,6 +53,29 @@ class EnsembleTeacher:
         return acc / len(self.models)
 
 
+class CompositeTeacher:
+    """Weighted average of several teachers' pack distributions — compose KD signals.
+
+    Lets you combine denoising (ensemble) with good-not-just-human (WR-softmax) or a leaky-feature
+    teacher in one target: `CompositeTeacher([ensemble, wr_teacher], weights=[1, 2])`. The mean of
+    valid distributions is a valid distribution; same `mean_probs` interface, so it drops into the
+    same `train_loop` hook.
+    """
+
+    def __init__(self, teachers: list, weights: list[float] | None = None):
+        self.teachers = teachers
+        self.weights = weights if weights is not None else [1.0] * len(teachers)
+
+    @torch.no_grad()
+    def mean_probs(self, pool, pool_mask, pack, pack_mask, temp: float = 2.0) -> torch.Tensor:
+        acc, wsum = None, 0.0
+        for t, w in zip(self.teachers, self.weights):
+            p = t.mean_probs(pool, pool_mask, pack, pack_mask, temp=temp) * w
+            acc = p if acc is None else acc + p
+            wsum += w
+        return acc / wsum
+
+
 class EnsembleModel:
     """Eval-time wrapper: makes the ensemble look like a model for `eval.evaluate_on_set`.
 

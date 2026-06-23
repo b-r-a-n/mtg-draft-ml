@@ -6,7 +6,12 @@ Two distillation tracks live in `src/mtg_draft_ml/distill/`, attacking different
 |---|---|---|---|---|
 | **ensemble-of-seeds** | DD-004 #1 | sample efficiency on the data we already have | K seed models, same data | `ensemble.py`, `scripts/pod_distill.py` |
 | **WR-softmax** | DD-004 #1 | good-not-just-human, as a *dense* target | win-rate ranking over the pack | `wr.py`, `scripts/pod_wr_distill.py` |
+| **leaky → release-day** | DD-004 #3 | smuggle privileged knowledge into a release-day student | a win-rate-augmented model | `leaky.py`, `scripts/pod_leaky_distill.py` |
 | **cold-start** | DD-004 #4 | zero data on a new set's release day | LLM reading oracle text | `teacher.py`, `coldstart.py`, `scripts/pod_coldstart.py` |
+
+All four share `pack_distillation_kl` + the opt-in `train_loop` hook; the teachers all expose the same
+`mean_probs(pool, pool_mask, pack, pack_mask, temp)` interface, so `CompositeTeacher` can average any
+of them into one target (e.g. denoise *and* bias toward winning).
 
 The ensemble track is the higher-leverage one for the project's central finding (the ~0.58 ceiling
 and the flat data/capacity scaling are *objective*-bound, not data-bound). The cold-start track is a
@@ -146,6 +151,68 @@ uv run python scripts/pod_wr_distill.py --wr-field drawn_improvement_win_rate --
   target inherits them.
 - It can be combined with the ensemble teacher (denoise *and* bias toward winning) by averaging the
   two `mean_probs`; left as a follow-up to keep the first comparison clean.
+
+---
+
+# Leaky-feature → release-day distillation (DD-004 #3)
+
+**Status:** scaffold (`distill/leaky.py`, runner `scripts/pod_leaky_distill.py`; reuses the KD term,
+the `train_loop` hook, and `EnsembleTeacher` as a single-model wrapper).
+**Question it answers:** a teacher given per-card win rate as an input feature is more powerful — but
+win rate is a post-hoc aggregate that doesn't exist on a new set's release day and leaks outcome
+information. Can its win-rate-informed *contextual* policy be distilled into a student that sees only
+release-day inputs, so the student needs no win-rate features at inference?
+
+## Distinct from the WR-softmax teacher
+
+WR-softmax makes the target the *pure* win-rate ordering (ignores pool synergy). The leaky teacher
+*learns* a full policy that blends win rate with the pool context — "high-WR **and** fits your pool" —
+a richer target. That's why DD-004 #3 is separate from #1.
+
+## Mechanism
+
+The teacher is a `ContentDraftModel` on a **win-rate-augmented content matrix**:
+`augment_with_winrate(base, wr_z, wr_mask)` appends two columns — z-scored win rate (0-filled where
+unrated) and a rated flag (so the encoder can tell "WR≈0 because average" from "0 because unrated").
+The teacher's encoder is two inputs wider; everything downstream (pool encoder, pick head) is
+unchanged, so it produces pack logits over the same vocab and wraps in `EnsembleTeacher([teacher])`
+to expose the standard `mean_probs`. The student trains on the **base** matrix (release-day) with the
+KD term — no architecture change, no win-rate features at inference.
+
+## The experiment
+
+`run_leaky_distill` compares on a held-out set:
+
+| policy | sees win rate? | meaning |
+|---|---|---|
+| baseline (CE) | no | release-day floor |
+| **distilled (CE+KD)** | no (distilled from a teacher that did) | the candidate |
+| teacher (leaky) | yes (incl. the holdout's real WR) | the ceiling the student chases |
+
+Read WR-agreement / avg-pick-WR; the report prints `distilled − baseline` and the fraction of the
+teacher gap closed. The teacher's holdout eval uses the holdout's real win-rate columns — an offline
+upper reference; a real release-day deploy wouldn't have them, which is exactly why the student must
+inherit the knowledge instead.
+
+## Running it
+
+```bash
+uv run python scripts/pod_leaky_distill.py
+uv run python scripts/pod_leaky_distill.py --wr-field drawn_improvement_win_rate --distill-topk 5
+```
+
+## Composing teachers
+
+`CompositeTeacher([ensemble, wr_or_leaky], weights=[1, 2])` averages teachers' distributions into one
+KD target — denoise *and* bias toward winning in a single pass, since every teacher shares the
+`mean_probs` interface. Drops into the same `train_loop` hook unchanged.
+
+## Caveat
+
+The win rate the teacher learns from is a confounded proxy (favors controlling decks); the student
+inherits that bias along with the signal. The leaky teacher's *ceiling* on the holdout also depends
+on the holdout's real ratings, so read "fraction of gap closed" as "how transferable was the
+win-rate-informed policy," not an absolute deployable number.
 
 ---
 

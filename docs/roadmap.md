@@ -71,7 +71,14 @@ only *reweights* the hard-label example by a scalar; `WRSoftmaxTeacher` reshapes
 win-rate ranking over the pack. `run_wr_distill` (`scripts/pod_wr_distill.py`) compares CE vs CE+WR-KD
 (dense) vs CE+advantage (scalar) on WR-agreement / avg-pick-WR — does reshaping the target beat
 reweighting the example? Reuses the same KD term + `train_loop` hook (teacher-agnostic plumbing).
-Next: leaky-feature→release-day teacher (DD-004 #3), and combining the WR + ensemble teachers.
+
+**Leaky-feature → release-day teacher (DD-004 #3)** — a teacher with per-card win rate as an input
+feature (`augment_with_winrate` appends WR + a rated flag) learns a win-rate-informed *contextual*
+policy, distilled into a student that sees only release-day inputs. `run_leaky_distill`
+(`scripts/pod_leaky_distill.py`) compares baseline / distilled / the leaky teacher (ceiling) on
+WR-agreement. `CompositeTeacher` averages any teachers' `mean_probs` into one target (denoise + good-
+not-just-human + leaky), reusing the same KD hook. Next: distill a search/lookahead policy
+(DD-004 #5, gated on a simulator — Phase 4).
 
 ### Cold-start track — LLM-teacher distillation for brand-new sets *(DD-004 #4)*
 **Goal:** provide pick guidance on a set's release day, when there is **zero** 17lands data — the one
