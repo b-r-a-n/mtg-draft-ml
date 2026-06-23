@@ -50,3 +50,11 @@ ignore = ["E702"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]   # scripts/ are runnable entry points, not tests
+
+[tool.pyright]
+# Point the language server at uv's project venv (so torch/numpy/anthropic resolve) and at the
+# src/ layout (so first-party `mtg_draft_ml` imports resolve without relying on the editable install).
+# Populate the venv with `uv sync --all-extras` (installs the dev/embeddings/hub/distill extras too).
+venvPath = "."
+venv = ".venv"
+extraPaths = ["src"]
