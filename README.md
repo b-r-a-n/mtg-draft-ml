@@ -44,6 +44,7 @@ src/mtg_draft_ml/
   cards/              Scryfall feature extraction + frozen text embeddings
   models/             card encoder, pool encoder, pick head, full model
   training/           losses (masked CE / InfoNCE / distillation), train loop
+  distill/            soft-label distillation: ensemble / WR-softmax / leaky / LLM cold-start (DD-004)
   eval/               top-1, MTPD, per-pick, new-set generalization metrics
 configs/              experiment configs (phase0.example.yaml)
 data/                 datasets (gitignored)
@@ -182,6 +183,48 @@ raises WR-agreement at no top-1 cost; the **adjusted-WR auxiliary head** (`--aux
 each card's WR as a multi-task target) is the bigger win — held-out **0.574** (best), via better
 generalization. Add `--holdout-ratings` for WR-agreement. See
 [docs/results/phase3-winrate.md](docs/results/phase3-winrate.md).
+
+## Distillation experiments (DD-004)
+
+Soft-label distillation in four flavors — a denser/denoised/win-rate-aware target injected on top of
+the one-hot human label. All share one KD term (`training.losses.pack_distillation_kl`) and an opt-in
+`train_loop` hook; every teacher exposes the same `mean_probs` interface, so they compose. Full
+design + how to read each result: [docs/coldstart-distillation.md](docs/coldstart-distillation.md).
+
+**The code runs with no data or API key** — the test suite trains teachers, distills, and evaluates
+end-to-end on synthetic fixtures:
+
+```bash
+uv sync --all-extras                       # env incl. the MiniLM encoder + the cold-start LLM teacher
+uv run pytest tests/test_distill*.py        # 23 tests: all four experiments on tiny in-memory data
+```
+
+For a **real** run, fetch the 4 train sets + 1 holdout (`BLB OTJ WOE MKM → DSK`, `sample60000` +
+ratings) into `data/hf/` — the layout the scripts expect:
+
+```bash
+uv run python -m mtg_draft_ml.data.hf pull --repo <user>/mtg-draft --out data/hf
+ls data/hf/draft        # <SET>.PremierDraft.sample60000.parquet for the 5 sets
+```
+
+(No HF repo? Build per set with `data.pipeline --set <SET> --sample-rows 60000 --scryfall` +
+`data.download.download_card_ratings`, then arrange under `data/hf/` with that naming.) Then:
+
+```bash
+uv run python scripts/pod_distill.py                       # ensemble-of-seeds: sample efficiency
+uv run python scripts/pod_distill.py --train-frac 0.25     #   KD on 1/4 the data vs CE on all of it
+uv run python scripts/pod_wr_distill.py                    # WR-softmax: dense target vs scalar advantage
+uv run python scripts/pod_leaky_distill.py                 # leaky-feature -> release-day student
+uv run python scripts/pod_coldstart.py --teacher heuristic # cold-start for a brand-new set (offline)
+uv run python scripts/pod_coldstart.py --teacher anthropic #   ...with a Claude teacher (ANTHROPIC_API_KEY)
+```
+
+Small models — laptop CPU/MPS is fine; add `--epochs 3` (and `--teachers 2`) for a fast first look.
+Each script prints a report and writes `data/<experiment>.json`. **Read WR-agreement / avg-pick-WR
+and ranking quality (top-3/5, MTPD), not top-1** (noise-ceilinged at ~0.58 — the reason for these
+experiments); each report prints the decisive delta (dense − scalar, fraction of the teacher/oracle
+gap closed). Flat across all of those vs the CE baseline is itself a result — it corroborates the
+noise ceiling from the objective side.
 
 See [docs/roadmap.md](docs/roadmap.md) for remaining Phase 1 work (multi-set training, feature
 standardization) and [docs/data-infra.md](docs/data-infra.md) for the storage plan.
