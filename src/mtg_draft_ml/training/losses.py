@@ -48,6 +48,39 @@ def win_rate_weights(wins: torch.Tensor, scheme: str = "exp", beta: float = 0.3,
     return out
 
 
+def topk_renormalize(probs: torch.Tensor, pack_mask: torch.Tensor, k: int) -> torch.Tensor:
+    """Keep each row's top-k highest-prob pack positions, zero the rest, renormalize to sum 1.
+
+    Focuses a soft target on the few picks that actually matter (the top of the pack) and drops the
+    long unplayable tail, so the distillation loss isn't dominated by easy negatives (top-k ranking
+    distillation). probs[B,P] should already be 0 at padded positions; k>=P is a no-op.
+    """
+    P = probs.shape[-1]
+    if k <= 0 or k >= P:
+        return probs
+    _, top_i = probs.topk(k, dim=-1)
+    keep = torch.zeros_like(probs, dtype=torch.bool).scatter_(-1, top_i, True) & pack_mask
+    kept = torch.where(keep, probs, torch.zeros_like(probs))
+    return kept / kept.sum(-1, keepdim=True).clamp_min(1e-9)
+
+
+def pack_distillation_kl(student_logits: torch.Tensor, teacher_probs: torch.Tensor,
+                         pack_mask: torch.Tensor, temp: float = 2.0) -> torch.Tensor:
+    """Temperature-scaled KL(teacher ‖ student) over the pack — the soft-label distillation term.
+
+    The one-hot human label throws the in-pack *ranking* away; this matches the student's softened
+    pack distribution to a teacher distribution (`teacher_probs[B,P]`, already softmaxed at `temp`,
+    0 at pads), injecting that ranking. Standard Hinton KD: target = teacher, gradient scaled by
+    temp² so it composes with the hard-label CE on a stable scale. Pads are masked out (no -inf
+    arithmetic). Mix with CE as `(1-λ)·CE + λ·this` in the training loop.
+    """
+    masked = student_logits.masked_fill(~pack_mask, -1e9) / temp
+    student_logp = torch.log_softmax(masked, dim=-1)
+    term = teacher_probs * (teacher_probs.clamp_min(1e-9).log() - student_logp)
+    term = torch.where(pack_mask, term, torch.zeros_like(term))
+    return (term.sum(-1) * (temp * temp)).mean()
+
+
 def pick_advantage_weights(pick_idx, pack, pack_mask, card_wr, card_wr_mask,
                            tau: float = 0.05, clamp: float = 5.0) -> torch.Tensor:
     """Per-example weights = how good the human's pick was, by win-rate, RELATIVE to its pack.

@@ -40,7 +40,7 @@ print(f"saved bundle -> {bundle}")
 # Demo: reload and pick, showing the aggressiveness dial shift a real mid-pack decision.
 d = Drafter.load(bundle)
 # pick a real draft context: a mid-pack pick from the data
-import pyarrow.parquet as pq_
+import pyarrow.parquet as pq_  # noqa: E402  (local import in the demo section, by design)
 t = pq_.read_table(pq, columns=["pick_number", "pack_indices", "pool_indices"])
 row = next(i for i in range(t.num_rows) if 4 <= t.column("pick_number")[i].as_py() <= 7
            and len(t.column("pack_indices")[i].as_py()) >= 5

@@ -1,6 +1,4 @@
 """Phase-5 sequence model tests: dataset grouping, collate, forward shapes, and CAUSALITY."""
-import json
-
 import pytest
 
 torch = pytest.importorskip("torch")

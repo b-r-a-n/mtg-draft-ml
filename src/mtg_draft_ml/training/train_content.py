@@ -29,7 +29,13 @@ from ..cards.text_embed import get_embedder
 from ..data.dataset import DraftPickDataset, collate_picks
 from ..eval.metrics import PickEvaluator
 from ..models.draft_model import ContentDraftModel
-from .losses import pick_advantage_weights, pick_cross_entropy, win_rate_weights
+from .losses import (
+    pack_distillation_kl,
+    pick_advantage_weights,
+    pick_cross_entropy,
+    topk_renormalize,
+    win_rate_weights,
+)
 from .train import _midpack_acc, _save, draft_level_split, pick_device
 
 
@@ -109,7 +115,8 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
                n_cards, tag, ckpt_prefix="content", loss="ce", n_negatives=512,
                win_weight="none", win_beta=0.3, warmup_frac=0.0, grad_clip=0.0,
                aux_wr_target=None, aux_wr_mask=None, aux_wr_lambda=0.0,
-               adv_target=None, adv_mask=None, adv_tau=0.0):
+               adv_target=None, adv_mask=None, adv_tau=0.0,
+               teacher=None, distill_lambda=0.0, distill_temp=2.0, distill_topk=0):
     """Shared epoch loop used by both single-set fit() and multi-set LOSO. Returns best metrics.
 
     loss="infonce" appends `n_negatives` shared global negatives to each example's pack logits
@@ -118,10 +125,18 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
     aux_wr_lambda>0 adds a multi-task win-rate regression head (MSE on aux_wr_target[aux_wr_mask]).
     warmup_frac>0 linearly warms the LR over that fraction of total steps (stabilizes larger models);
     grad_clip>0 clips gradient norm.
+
+    teacher (with distill_lambda>0) turns on soft-label ranking distillation (DD-004 #1): the loss
+    becomes (1-λ)·CE + λ·KL(teacher ‖ student) over the pack, where `teacher.mean_probs(...)` is a
+    frozen teacher's pack distribution at `distill_temp`. distill_topk>0 restricts the soft target to
+    the teacher's top-k pack picks. Requires the CE path (no global negatives).
     """
     use_negs = loss == "infonce" and n_negatives > 0
     aux_on = aux_wr_lambda > 0 and aux_wr_target is not None
     adv_on = adv_tau > 0 and adv_target is not None
+    distill_on = teacher is not None and distill_lambda > 0
+    if distill_on and use_negs:
+        raise ValueError("distillation needs the CE path (in-pack logits); set loss='ce'")
     tt = mm = None
     if aux_on:
         tt = torch.as_tensor(aux_wr_target, dtype=torch.float32, device=dev)
@@ -136,7 +151,7 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
     for epoch in range(epochs):
         model.train()
         running = seen = 0.0
-        aux_running = 0.0
+        aux_running = kd_running = 0.0
         for b in train_dl:
             if warmup_steps and step < warmup_steps:  # linear LR warmup
                 for g in opt.param_groups:
@@ -155,6 +170,16 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
                 aux = F.mse_loss(model.card_quality()[mm], tt[mm])
                 loss_v = loss_v + aux_wr_lambda * aux
                 aux_running += aux.item()
+            if distill_on:
+                pack_mask = b["pack_mask"].to(dev)
+                with torch.no_grad():
+                    tprobs = teacher.mean_probs(b["pool"].to(dev), b["pool_mask"].to(dev),
+                                                b["pack"].to(dev), pack_mask, temp=distill_temp)
+                    if distill_topk:
+                        tprobs = topk_renormalize(tprobs, pack_mask, distill_topk)
+                kd = pack_distillation_kl(logits, tprobs, pack_mask, temp=distill_temp)
+                loss_v = (1.0 - distill_lambda) * loss_v + distill_lambda * kd
+                kd_running += kd.item()
             opt.zero_grad()
             loss_v.backward()
             if grad_clip:
@@ -168,9 +193,10 @@ def train_loop(model, train_dl, val_dl, dev, *, epochs, lr, checkpoint_dir, chec
 
         m = evaluate(model, val_dl, dev)
         aux_str = f"  aux_wr_mse={aux_running / max(len(train_dl), 1):.4f}" if aux_on else ""
+        kd_str = f"  kd_kl={kd_running / max(len(train_dl), 1):.4f}" if distill_on else ""
         print(f"epoch {epoch}: train_loss={running / max(seen, 1):.4f}  "
               f"val_top1={m['top1']:.4f}  val_mtpd={m['mtpd']:.3f}  "
-              f"mid-pack_top1={_midpack_acc(m['acc_by_pick']):.4f}{aux_str}")
+              f"mid-pack_top1={_midpack_acc(m['acc_by_pick']):.4f}{aux_str}{kd_str}")
         _save(ckpt_dir / f"{ckpt_prefix}_last.pt", model, opt, step, epoch, n_cards, tag)
         if m["top1"] > best["top1"]:
             best = m

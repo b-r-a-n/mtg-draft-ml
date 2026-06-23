@@ -16,6 +16,7 @@ dependencies = [
 [project.optional-dependencies]
 embeddings = ["sentence-transformers"]  # frozen oracle-text encoder (Phase 1)
 hub = ["huggingface_hub"]               # push/pull dataset + checkpoints (DD-007)
+distill = ["anthropic", "pydantic"]     # LLM card-quality teacher for cold-start (DD-004)
 dev = ["pytest", "ruff", "ipykernel"]
 
 [build-system]
@@ -40,6 +41,12 @@ torch = [{ index = "pytorch-cu124", marker = "sys_platform == 'linux'" }]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+# E702 (statements joined with ';') is the project's deliberate compact style — e.g. the
+# `v[i] = ...; i += 1` feature-vector layout in cards/features.py and `p = ...; p.write_text(...)`
+# fixture setup throughout tests/. Keep it ignored rather than expand those into noisier multi-line.
+ignore = ["E702"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]   # scripts/ are runnable entry points, not tests
