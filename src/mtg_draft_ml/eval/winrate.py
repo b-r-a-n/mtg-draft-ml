@@ -73,6 +73,76 @@ def build_global_wr_targets(rating_specs, local_to_global, n_global: int,
     return acc, mask
 
 
+# Composite card-quality from the *richer* 17lands rating fields (most of which we otherwise ignore).
+ALSA_FIELDS = {"avg_pick", "avg_seen"}        # lower = picked/seen earlier = stronger -> invert
+DEFAULT_QUALITY_FIELDS = ("ever_drawn_win_rate", "drawn_improvement_win_rate", "avg_pick")
+_COUNT_FOR = {                                # confidence (game/observation count) per WR field
+    "ever_drawn_win_rate": "ever_drawn_game_count",
+    "drawn_improvement_win_rate": "drawn_game_count",
+    "drawn_win_rate": "drawn_game_count",
+    "never_drawn_win_rate": "never_drawn_game_count",
+    "opening_hand_win_rate": "opening_hand_game_count",
+    "avg_pick": "pick_count",
+    "avg_seen": "seen_count",
+    "win_rate": "game_count",
+}
+
+
+def _set_quality(manifest_path, ratings_path, fields, weights, shrink):
+    """Per-card composite z-score for one set (manifest-index order; NaN where no field present).
+
+    Each field is oriented (ALSA inverted so higher=stronger), z-scored within the set, optionally
+    shrunk toward the set mean by its game-count confidence (`z * n/(n+median_n)` — low-sample cards
+    pulled to neutral instead of contributing noisy extremes), then weight-averaged over the fields
+    that are present for that card.
+    """
+    zs, ws = [], []
+    for f, w in zip(fields, weights):
+        v = align_winrates(manifest_path, ratings_path, field=f).astype(np.float64)
+        if f in ALSA_FIELDS:
+            v = -v
+        z = zscore_ignore_nan(v)
+        if shrink:
+            n = align_winrates(manifest_path, ratings_path, field=_COUNT_FOR.get(f, "game_count"))
+            k = np.nanmedian(n)
+            if np.isfinite(k) and k > 0:
+                fac = np.where(np.isnan(n), 1.0, n / (n + k))   # missing count -> no shrink
+                z = z * fac
+        zs.append(z)
+        ws.append(float(w))
+    Z = np.vstack(zs)                                           # [F, n_cards]
+    W = np.asarray(ws)[:, None]
+    present = ~np.isnan(Z)
+    num = np.nansum(np.where(present, Z * W, 0.0), axis=0)
+    den = np.nansum(np.where(present, W, 0.0), axis=0)
+    return np.where(den > 0, num / den, np.nan)
+
+
+def composite_card_quality(rating_specs, local_to_global, n_global,
+                           fields=DEFAULT_QUALITY_FIELDS, weights=None, shrink=True):
+    """Global per-card quality from MULTIPLE 17lands fields (the ones we usually leave on the floor).
+
+    Combines several rating fields (default GIH-WR + IWD + ALSA) into one less-noisy card-quality
+    score via `_set_quality`, averages reprints across sets, and re-standardizes the global score so
+    a teacher temperature means the same thing as the single-field path. Same (score, mask) shape as
+    `build_global_wr_targets`, so it drops into `WRSoftmaxTeacher` unchanged. Returns
+    (score[n_global] float32 (0 where unknown), mask[n_global] bool).
+    """
+    weights = list(weights) if weights is not None else [1.0] * len(fields)
+    acc = np.zeros(n_global, dtype=np.float64)
+    cnt = np.zeros(n_global, dtype=np.float64)
+    for spec, l2g in zip(rating_specs, local_to_global):
+        comp = _set_quality(spec["manifest"], spec["ratings"], fields, weights, shrink)
+        for i, gv in enumerate(l2g):
+            if not np.isnan(comp[i]):
+                acc[gv] += comp[i]
+                cnt[gv] += 1.0
+    mask = cnt > 0
+    acc[mask] /= cnt[mask]
+    z = zscore_ignore_nan(np.where(mask, acc, np.nan))
+    return np.nan_to_num(z, nan=0.0).astype(np.float32), mask
+
+
 class WRMeter:
     """Accumulate 'good-not-just-human' metrics over batches, given per-card win rates.
 
