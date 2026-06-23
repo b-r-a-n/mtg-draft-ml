@@ -95,8 +95,25 @@ Recipe locked: content encoder → Set Transformer → in-pack CE + aux-WR (raw 
   runtime dial). **Recommended "good, not just human" recipe: IWD advantage-weighting (τ≈0.03),
   optionally + the IWD blend as a runtime aggressiveness dial.**
 
+## Distillation (DD-004)
+
+Soft-label KD arms (LOSO BLB+OTJ+WOE+MKM → DSK, GPU, 8 epochs). Full tables:
+[distillation.md](distillation.md). Read on **WR-agreement**, not top-1 (all arms sit at the noise
+ceiling). Human reference 0.2981 matches Phase 3 (eval consistency anchor).
+
+| arm | WR-agree (baseline → method) | vs | verdict |
+|---|---|---|---|
+| ensemble-of-seeds (denoise) | 0.2597 → 0.2538 | — | **no help** (control: same labels, no new info) |
+| **WR-softmax (dense WR target)** | 0.2597 → **0.2885** | scalar advantage 0.2725 | **win: +0.016 over the scalar method**, ~75% of the human gap |
+| leaky → release-day | 0.2597 → 0.2590 | teacher **0.3303** (>human) | strong teacher, **transfer failed** (λ=0.5/temp2) |
+
+**Takeaway:** the dense WR-softmax *target* is the keeper; denoising adds nothing; privileged-feature
+teachers don't distill as-is. The lever with headroom is a better win-rate *signal*, not more
+imitation data.
+
 ## Detailed docs
 
+- [distillation.md](distillation.md) — soft-label KD: ensemble / WR-softmax / leaky-feature (DD-004).
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the
   encoder ablation (features / hashing / MiniLM) and why text needs set diversity.
 - [phase2-set-transformer-infonce.md](phase2-set-transformer-infonce.md) — full Phase 2 analysis.
