@@ -42,6 +42,10 @@ to the last via the eval harness stood up in Phase 0.
 
 ## Phase 4 (stretch) — Beyond imitation
 **Goal:** picks that exceed human demonstrators, if a reliable value signal exists.
+**Now scoped:** [game-data-plan.md](game-data-plan.md) — a regression card-value model over 17lands
+`game_data` match outcomes (de-confounds GIH-WR), staged with a go/no-go gate. This is the remaining
+lever with headroom: every WR-agreement result plateaus at 0.29–0.31, capped by the confounded
+GIH-WR proxy itself (see `docs/results/good-players.md`).
 - Deck-strength value model over finished pools.
 - Advantage-weighted offline RL first; only then policy/value + lookahead (JueWuDraft-style),
   kept as a separate model from the human-pick predictor.
