@@ -55,7 +55,7 @@ def main():
     )
     train = [spec(s) for s in train_sets]
     hold_eval = {"parquet": hold["parquet"], "manifest": hold["manifest"], "scryfall": hold["scryfall"]}
-    tag = f"{a.holdout}_wr{a.min_winrate}_emb{a.emb_dim}h{a.enc_hidden}L{a.enc_layers}"
+    tag = f"{a.holdout}_wr{a.min_winrate}_{len(train_sets)}sets_emb{a.emb_dim}h{a.enc_hidden}L{a.enc_layers}"
     if a.seeds:
         from mtg_draft_ml.distill.skill import run_skill_multiseed
         run_skill_multiseed(train, hold_eval, seeds=[int(s) for s in a.seeds.split(",")],
