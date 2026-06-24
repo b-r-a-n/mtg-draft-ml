@@ -30,7 +30,7 @@ from torch.utils.data import ConcatDataset, DataLoader, Subset
 
 from ..cards.content_table import build_content_matrix, build_multiset_content
 from ..cards.text_embed import get_embedder
-from ..data.dataset import DraftPickDataset, RemappedDataset, collate_picks
+from ..data.dataset import DraftPickDataset, RemappedDataset, collate_picks, skill_filter_indices
 from ..eval.generalization import evaluate_on_set, novel_mask_for_holdout
 from ..models.draft_model import ContentDraftModel
 from ..training.train import draft_level_split, pick_device
@@ -98,12 +98,19 @@ def _build_model(gmat, dev, *, emb_dim, enc_hidden, enc_layers, dropout, pool, n
                              n_heads=n_heads, n_sab=n_sab).to(dev)
 
 
-def _loaders(bases, val_frac, split_seed, batch_size, train_frac=1.0):
-    """Build train/val loaders over the remapped sets. train_frac<1 subsamples train picks."""
+def _loaders(bases, val_frac, split_seed, batch_size, train_frac=1.0, skill=None):
+    """Build train/val loaders over the remapped sets. train_frac<1 subsamples train picks.
+
+    skill (a dict of skill_filter_indices kwargs) restricts BOTH train and val to good-player picks.
+    """
     train_subsets, val_subsets = [], []
     rng = np.random.default_rng(split_seed)
     for rds, pq in bases:
         tr, va = draft_level_split(pq, val_frac, split_seed)
+        if skill:
+            keep = set(skill_filter_indices(pq, **skill))
+            tr = [i for i in tr if i in keep]
+            va = [i for i in va if i in keep]
         if train_frac < 1.0:
             tr = np.asarray(tr)[rng.permutation(len(tr))[: int(train_frac * len(tr))]]
         train_subsets.append(Subset(rds, list(tr)))

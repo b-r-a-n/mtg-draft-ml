@@ -128,6 +128,42 @@ def collate_picks(batch: list[dict], pad_value: int = 0):
     }
 
 
+def skill_filter_indices(parquet_path, min_winrate=None, min_games=None, ranks=None) -> list[int]:
+    """Row indices whose drafter passes a skill bar (the "good players" filter).
+
+    Reads the per-pick drafter-skill columns 17lands ships and `preprocess` carries through:
+      - user_game_win_rate_bucket >= `min_winrate`  (the player's lifetime game win rate)
+      - user_n_games_bucket        >= `min_games`    (confidence — enough games to trust the estimate)
+      - rank in `ranks`                              (e.g. {"mythic","diamond","platinum"})
+    A criterion is skipped if its column is absent OR entirely null in the shard (so a set lacking
+    skill data isn't silently starved); where the column *has* data, an individual null row fails the
+    bar (unknown skill can't be confirmed good). Callers should check the kept fraction to confirm
+    the filter fired. None for every criterion = keep all.
+    """
+    avail = set(pq.read_schema(parquet_path).names)
+    want = [c for c in ("user_game_win_rate_bucket", "user_n_games_bucket", "rank") if c in avail]
+    t = pq.read_table(parquet_path, columns=want) if want else None
+    n = t.num_rows if t is not None else pq.read_metadata(parquet_path).num_rows
+
+    def col(name):
+        return t.column(name).to_pylist() if (t is not None and name in want) else [None] * n
+
+    wr, ng, rk = col("user_game_win_rate_bucket"), col("user_n_games_bucket"), col("rank")
+    wr_on = min_winrate is not None and any(x is not None for x in wr)
+    ng_on = min_games is not None and any(x is not None for x in ng)
+    rk_on = ranks is not None and any(x is not None for x in rk)
+    keep = []
+    for i in range(n):
+        if wr_on and (wr[i] is None or wr[i] < min_winrate):
+            continue
+        if ng_on and (ng[i] is None or ng[i] < min_games):
+            continue
+        if rk_on and (rk[i] is None or rk[i] not in ranks):
+            continue
+        keep.append(i)
+    return keep
+
+
 def pool_multihot(pool_indices, pool_counts, n_cards: int):
     """Fixed-width multi-hot (counts) pool vector for the Phase-0 one-hot baseline."""
     torch = _require_torch()

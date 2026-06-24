@@ -13,6 +13,7 @@ how much of the achievable cold-start benefit does the LLM teacher capture befor
 """
 from .ensemble import CompositeTeacher, EnsembleModel, EnsembleTeacher, run_ensemble_distill
 from .leaky import augment_with_winrate, run_leaky_distill
+from .skill import run_skill_experiment
 from .wr import WRSoftmaxTeacher, run_wr_distill
 from .teacher import (
     AnthropicTeacher,
@@ -41,4 +42,6 @@ __all__ = [
     "run_leaky_distill",
     # compose KD signals (denoise + good-not-just-human + leaky) into one target
     "CompositeTeacher",
+    # train on good players, not the average drafter (skill-filtered data)
+    "run_skill_experiment",
 ]

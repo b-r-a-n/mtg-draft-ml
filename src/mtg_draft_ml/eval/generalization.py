@@ -45,17 +45,21 @@ def novel_card_mask(train_manifest: str, test_manifest: str) -> torch.Tensor:
 @torch.no_grad()
 def evaluate_on_set(model, parquet: str, device, novel_card: torch.Tensor | None = None,
                     card_wr=None, quality=None, blend_alpha: float = 0.0,
-                    batch_size: int = 512) -> dict:
+                    subset_indices=None, batch_size: int = 512) -> dict:
     """Evaluate `model` (with its current content table) on a set's picks.
 
     If `card_wr` (per-card win rate, manifest-index order) is given, also report 'good-not-just-
     human' WR-agreement metrics. If `quality` (per-card score) + `blend_alpha`>0 are given, the
     pick is made on `pointer_logit + blend_alpha * quality[card]` (the pick-time quality blend).
+    `subset_indices` restricts the eval to those pick rows (e.g. only good-player holdout picks).
     """
     from .winrate import WRMeter
 
     model.eval()
     ds = DraftPickDataset(parquet)
+    if subset_indices is not None:
+        from torch.utils.data import Subset
+        ds = Subset(ds, list(subset_indices))
     dl = DataLoader(ds, batch_size=batch_size, shuffle=False, collate_fn=collate_picks)
     ev = PickEvaluator()
     ev_novel = PickEvaluator()
