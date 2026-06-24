@@ -93,13 +93,13 @@ def test_run_skill_experiment_end_to_end(tmp_path):
     res = run_skill_experiment(
         [{"parquet": pq_a, "manifest": man_a, "scryfall": scry, "ratings": rat_a}],
         {"parquet": pq_b, "manifest": man_b, "scryfall": scry}, holdout_ratings=rat_b,
-        min_winrate=0.5, min_games=10,                       # lenient: keeps enough to train
+        min_winrate=0.5, min_games=10, volume_control=True,  # lenient + the random-matched arm
         embedder="hash", emb_dim=16, enc_hidden=32, enc_layers=2, pool="set_transformer",
         epochs=2, batch_size=4, val_frac=0.5, warmup_frac=0.0, grad_clip=0.0, device="cpu",
         checkpoint_dir=str(tmp_path / "ck"), seed=0,
     )
     assert res["mode"] == "skill" and 0.0 < res["kept_frac"] <= 1.0
-    for k in ("all_base", "all_comp", "good_base", "good_comp"):       # the 2x2
+    for k in ("all_base", "all_comp", "good_base", "good_comp", "rand_base", "rand_comp"):  # 3x2
         for view in ("full", "good_holdout"):
             m = res[k][view]
             assert 0.0 <= m["top1"] <= 1.0

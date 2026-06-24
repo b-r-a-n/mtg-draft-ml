@@ -39,6 +39,7 @@ def run_skill_experiment(
     min_winrate: float = 0.55, min_games: float = 50, ranks: set[str] | None = None,
     wr_field: str = "ever_drawn_win_rate", quality_fields: list[str] | None = None,
     wr_tau: float = 1.0, distill_lambda: float = 0.5, distill_temp: float = 1.0, distill_topk: int = 0,
+    volume_control: bool = False,
     embedder: str = "all-MiniLM-L6-v2", text: bool = True,
     emb_dim: int = 256, enc_hidden: int = 512, enc_layers: int = 3, dropout: float = 0.1,
     pool: str = "set_transformer", n_heads: int = 4, n_sab: int = 1,
@@ -66,8 +67,10 @@ def run_skill_experiment(
     # report how much data the good-player filter keeps (confirms it actually fired)
     kept = sum(len(skill_filter_indices(s["parquet"], **skill)) for s in train_specs)
     total = sum(len(DraftPickDataset(s["parquet"])) for s in train_specs)
+    kept_frac = kept / max(total, 1)
     print(f"device={dev}  good-player filter (winrate>={min_winrate}, games>={min_games}, ranks={ranks}): "
-          f"keeps {kept}/{total} train picks ({100*kept/max(total,1):.0f}%)  quality_fields={quality_fields}")
+          f"keeps {kept}/{total} train picks ({kept_frac*100:.0f}%)  quality_fields={quality_fields}"
+          + (f"  [volume_control: random arm at {kept_frac:.3f}]" if volume_control else ""))
 
     hp = dict(emb_dim=emb_dim, enc_hidden=enc_hidden, enc_layers=enc_layers, dropout=dropout,
               pool=pool, n_heads=n_heads, n_sab=n_sab)
@@ -78,7 +81,10 @@ def run_skill_experiment(
         tag = f"{pop}_{arm}"
         print(f"\n-- {tag} (seed {seed}) --")
         torch.manual_seed(seed)
+        # good = skill-filtered (~kept_frac of picks); rand = a RANDOM kept_frac subsample (same
+        # volume, mixed quality — the control that isolates label quality from data quantity).
         tdl, vdl = _loaders(bases, val_frac, split_seed=seed, batch_size=batch_size,
+                            train_frac=kept_frac if pop == "rand" else 1.0,
                             skill=skill if pop == "good" else None)
         m = _build_model(gmat, dev, **hp)
         extra = dict(teacher=teacher, distill_lambda=distill_lambda, distill_temp=distill_temp,
@@ -86,7 +92,8 @@ def run_skill_experiment(
         train_loop(m, tdl, vdl, dev, tag=tag, ckpt_prefix=tag, **common, **extra)
         return m
 
-    models = {(pop, arm): _train(pop, arm) for pop in ("all", "good") for arm in ("base", "comp")}
+    pops = ("all", "good", "rand") if volume_control else ("all", "good")
+    models = {(pop, arm): _train(pop, arm) for pop in pops for arm in ("base", "comp")}
 
     novel = novel_mask_for_holdout(holdout_spec["manifest"], set(key_to_idx))
     card_wr = align_winrates(holdout_spec["manifest"], holdout_ratings, field=wr_field)
@@ -99,8 +106,8 @@ def run_skill_experiment(
 
     results = {
         "mode": "skill", "min_winrate": min_winrate, "min_games": min_games, "ranks": list(ranks) if ranks else None,
-        "quality_fields": quality_fields, "n_train_sets": len(train_specs),
-        "kept_frac": kept / max(total, 1), "good_holdout_frac": len(good_holdout) / max(len(DraftPickDataset(holdout_spec["parquet"])), 1),
+        "quality_fields": quality_fields, "n_train_sets": len(train_specs), "volume_control": volume_control,
+        "kept_frac": kept_frac, "good_holdout_frac": len(good_holdout) / max(len(DraftPickDataset(holdout_spec["parquet"])), 1),
     }
     for (pop, arm), m in models.items():
         m.set_content(torch.from_numpy(hmat))
@@ -117,7 +124,8 @@ def _print_report(r: dict):
     print(f"filter winrate>={r['min_winrate']} games>={r['min_games']} ranks={r['ranks']}  "
           f"keeps {r['kept_frac']*100:.0f}% of train picks; good-player holdout = {r['good_holdout_frac']*100:.0f}%")
     print(f"  {'model':<16}{'WR-agree':>10}{'avgPWR':>9}{'top1(all)':>11}{'top1(good)':>12}")
-    for pop in ("all", "good"):
+    pops = ("all", "good", "rand") if r.get("volume_control") else ("all", "good")
+    for pop in pops:
         for arm in ("base", "comp"):
             k = f"{pop}_{arm}"; f = r[k]["full"]; g = r[k]["good_holdout"]
             print(f"  {pop+'/'+arm:<16}{(f['wr_agreement_model'] or 0):>10.4f}{(f['avg_pick_wr_model'] or 0):>9.4f}"
@@ -127,8 +135,12 @@ def _print_report(r: dict):
     print(f"  {'human (good)':<16}{'':>10}{'':>9}{'':>11}{(ga['wr_agreement_human'] or 0):>12.4f}  <- WR-agree among good drafters")
     d_wr = (r["good_base"]["full"]["wr_agreement_model"] or 0) - (r["all_base"]["full"]["wr_agreement_model"] or 0)
     d_t1g = r["good_base"]["good_holdout"]["top1"] - r["all_base"]["good_holdout"]["top1"]
-    print(f"  good - all (baseline):  WR-agree {d_wr:+.4f}   top1-on-good {d_t1g:+.4f}  "
-          f"(>0 => training on good players helps)")
+    print(f"  good - all (baseline):  WR-agree {d_wr:+.4f}   top1-on-good {d_t1g:+.4f}")
+    if r.get("volume_control"):       # the clean test: same volume, only quality differs
+        q_wr = (r["good_base"]["full"]["wr_agreement_model"] or 0) - (r["rand_base"]["full"]["wr_agreement_model"] or 0)
+        q_t1 = r["good_base"]["good_holdout"]["top1"] - r["rand_base"]["good_holdout"]["top1"]
+        print(f"  good - rand (SAME volume):  WR-agree {q_wr:+.4f}   top1-on-good {q_t1:+.4f}  "
+              f"(>0 => good-player LABELS are genuinely cleaner, beyond volume)")
 
 
 def _spec(s: str) -> dict:
@@ -149,6 +161,8 @@ def main(argv=None):  # pragma: no cover - thin CLI
     ap.add_argument("--min-winrate", type=float, default=0.55)
     ap.add_argument("--min-games", type=float, default=50)
     ap.add_argument("--ranks", default=None, help="comma list e.g. mythic,diamond,platinum (optional)")
+    ap.add_argument("--volume-control", action="store_true",
+                    help="also train a random subsample at the good-player fraction (isolates quality vs quantity)")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--device", default="auto")
@@ -158,6 +172,7 @@ def main(argv=None):  # pragma: no cover - thin CLI
         [_spec(t) for t in a.train], _spec(a.holdout), holdout_ratings=a.holdout_ratings,
         min_winrate=a.min_winrate, min_games=a.min_games,
         ranks=set(s.strip() for s in a.ranks.split(",")) if a.ranks else None,
+        volume_control=a.volume_control,
         epochs=a.epochs, batch_size=a.batch_size, device=a.device, out_json=a.out_json,
     )
 

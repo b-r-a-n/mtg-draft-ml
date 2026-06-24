@@ -32,6 +32,8 @@ def main():
     ap.add_argument("--min-winrate", type=float, default=0.55)
     ap.add_argument("--min-games", type=float, default=50)
     ap.add_argument("--ranks", default=None, help="comma list e.g. mythic,diamond,platinum")
+    ap.add_argument("--volume-control", action="store_true",
+                    help="add a random-subsample arm at the good-player fraction (quality vs quantity)")
     ap.add_argument("--epochs", type=int, default=8)
     ap.add_argument("--device", default="auto")
     a = ap.parse_args()
@@ -44,8 +46,9 @@ def main():
         {"parquet": hold["parquet"], "manifest": hold["manifest"], "scryfall": hold["scryfall"]},
         holdout_ratings=hold["ratings"], min_winrate=a.min_winrate, min_games=a.min_games,
         ranks=set(s.strip() for s in a.ranks.split(",")) if a.ranks else None,
+        volume_control=a.volume_control,
         embedder="all-MiniLM-L6-v2", pool="set_transformer", epochs=a.epochs, device=a.device, seed=0,
-        out_json=f"data/skill_{a.holdout}_wr{a.min_winrate}.json",
+        out_json=f"data/skill_{a.holdout}_wr{a.min_winrate}{'_vc' if a.volume_control else ''}.json",
     )
 
 
