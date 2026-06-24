@@ -111,9 +111,25 @@ ceiling). Human reference 0.2981 matches Phase 3 (eval consistency anchor).
 teachers don't distill as-is. The lever with headroom is a better win-rate *signal*, not more
 imitation data.
 
+## "More data" axes + good players (DD-004 follow-ups)
+
+Full detail: [good-players.md](good-players.md). Holdout DSK, composite-WR target, single seed.
+
+| lever | result | verdict |
+|---|---|---|
+| more **sets** (4→7 diversity) | baseline top1 0.5710 → **0.5778** | helps (free) |
+| richer **fields** (GIH+IWD+ALSA, conf-shrunk) | WR-agree **0.2902** at 4 sets (+0.0053 vs single) | helps, washes out at 7 sets |
+| more **picks/set** (depth 60k→240k) | flat-to-down everywhere | **no — saturates** (confirmed under the new objective) |
+| **good players** (winrate≥0.55, vs volume-matched random) | WR-agree **+0.0057**; top1-on-good **−0.0146** | **WR: real (label quality); top-1: refuted** |
+
+Best "good, not just human" config so far: **good players + composite-WR target → WR-agreement 0.2974
+≈ average human (0.2981)**. All WR-agreement results plateau at 0.29–0.31, capped by the confounded
+GIH-WR proxy — the remaining lever with headroom is a less-confounded value signal (game_data).
+
 ## Detailed docs
 
 - [distillation.md](distillation.md) — soft-label KD: ensemble / WR-softmax / leaky-feature (DD-004).
+- [good-players.md](good-players.md) — skill-filtered training + the volume-matched control.
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the
   encoder ablation (features / hashing / MiniLM) and why text needs set diversity.
 - [phase2-set-transformer-infonce.md](phase2-set-transformer-infonce.md) — full Phase 2 analysis.
