@@ -34,6 +34,12 @@ Reproduce: `scripts/pod_skill.py --min-winrate 0.55 --min-games 50 --volume-cont
 
 (WR-agreement vs 17lands GIH-WR; `(n/4)` = seeds with a positive delta.)
 
+> **Reproduced (2026-06-24).** An independent fresh 4-seed pass (RunPod A5000) of both the 4-set-small
+> and 7-set-big rows reproduced these numbers **to the digit** — confirming them as the game_data
+> Step-1 prereq (see [game-data-plan.md](../game-data-plan.md)). Takeaway for that branch: the seed
+> noise floor is **≈±0.005**, the **~0.30 WR-agreement ceiling is seed-robust**, and a game_data lift
+> must clear **~0.01** to count.
+
 ## Findings
 
 1. **The good-player lever is real, and it *grows with scale*.** good−rand WR (the clean

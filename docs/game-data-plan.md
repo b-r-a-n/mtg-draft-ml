@@ -68,12 +68,26 @@ JSON (so it's a drop-in field). Validate face-plausibility (bombs/removal high, 
 best config (good players + composite). Evaluate on **estimated deck-WR** *and* WR-agreement-vs-adjusted.
 Headline: does the de-confounded target push past the 0.29–0.31 GIH-WR ceiling?
 
-## Prereq (cheap, do first): multi-seed confirmation
+## Prereq (cheap, do first): multi-seed confirmation — ✅ DONE (2026-06-24)
 
 Every recent delta (+0.0057 good-vs-rand, +0.0053 composite, +0.0068 more-sets) is ~0.005 — within
 single-seed noise; we've trusted the *consistent ordering*, not the magnitude. Before investing in
 game_data, **rotate 3–5 seeds** on the current best config (good players + composite) to confirm the
 orderings and get error bars. ~30 min on a pod; bankable either way. `scripts/rotate_seeds.py` exists.
+
+**Done.** Ran a fresh **4-seed** pass (RunPod A5000, ~3h, ~$0.87) over both scales via
+`scripts/pod_skill.py --seeds 0,1,2,3` — 4-set small net and the 7-set big-net best config. It
+**reproduces [`results/good-players.md`](results/good-players.md) to the digit**, so those numbers are
+solid, not single-run flukes. Key facts for the game_data go-decision:
+- **Seed noise floor ≈ ±0.005** (1σ on WR-agreement). A Step-2 game_data lift must clear **~0.01
+  (≈2σ)** to be unambiguously real.
+- **The ~0.30 WR-agreement ceiling is robust across seeds.** Best confirmed config (good + composite,
+  7-set big net) = **0.2988 ± 0.0052 ≈ average human (0.298)**; even the strong levers plateau there.
+- **Lever orderings confirmed with error bars:** composite-WR target is large & robust (~0.26→0.30,
+  ≫ noise); good-player *labels* are real but small and **scale-dependent** (good−rand WR
+  +0.0018±0.0070 [3/4] at 4-set-small → **+0.0158±0.0039 [4/4]** at 7-set-big); more-sets/capacity
+  lifts good/comp +0.011 and flips top1-on-good positive. Nothing breaks ~0.30 → the ceiling is the
+  confounded GIH-WR target, which is exactly what the game_data β_c is meant to replace.
 
 ## Risks / honest caveats
 
