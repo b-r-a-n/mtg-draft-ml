@@ -120,11 +120,14 @@ Full detail: [good-players.md](good-players.md). Holdout DSK, composite-WR targe
 | more **sets** (4→7 diversity) | baseline top1 0.5710 → **0.5778** | helps (free) |
 | richer **fields** (GIH+IWD+ALSA, conf-shrunk) | WR-agree **0.2902** at 4 sets (+0.0053 vs single) | helps, washes out at 7 sets |
 | more **picks/set** (depth 60k→240k) | flat-to-down everywhere | **no — saturates** (confirmed under the new objective) |
-| **good players** (winrate≥0.55, vs volume-matched random) | WR-agree **+0.0057**; top1-on-good **−0.0146** | **WR: real (label quality); top-1: refuted** |
+| **good players** (multi-seed; vs volume-matched random) | good−rand WR **+0.0018→+0.0049→+0.0158** (4-set → 7-set → big net); top1-on-good **−0.0076→+0.0091** | **real, and grows with scale**; small-seed runs misled |
+| **capacity** (big vs small net, 7 sets, multi-seed) | good/comp WR 0.2955 → 0.2988 (within noise) | **doesn't raise the ceiling** (signal-bound); but *amplifies* the good-player lever |
 
-Best "good, not just human" config so far: **good players + composite-WR target → WR-agreement 0.2974
-≈ average human (0.2981)**. All WR-agreement results plateau at 0.29–0.31, capped by the confounded
-GIH-WR proxy — the remaining lever with headroom is a less-confounded value signal (game_data).
+Best confirmed "good, not just human" config: **big net + good players + composite-WR + 7 sets →
+WR-agreement 0.299 ± 0.005 ≈ average human (0.298)**. All WR-agreement results plateau at 0.29–0.31,
+capped by the confounded GIH-WR proxy — the remaining lever with headroom is a less-confounded value
+signal (game_data). (Note: single-seed runs over-stated the good-player win and "refuted" the
+cleaner-label effect; multi-seed at scale reversed both — see [good-players.md](good-players.md).)
 
 ## Detailed docs
 

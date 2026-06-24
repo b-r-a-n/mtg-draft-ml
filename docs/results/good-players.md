@@ -3,79 +3,75 @@
 **Question:** the ~0.58 top-1 ceiling is human *disagreement*, and the WR-agreement ceiling (~0.29)
 is the average drafter's mediocre win-rate selection. Good players disagree less and take higher-WR
 cards — so does training on *them* (filtering the same data to high-skill drafters) lift either
-ceiling? And is any gain real label quality, or just an artifact of how much data we keep?
+ceiling? Is any gain real label quality or just data volume? And does it depend on **scale** (model
+capacity × set diversity)?
 
 **Setup:** 17lands tags every pick with the drafter's skill (`user_game_win_rate_bucket`,
-`user_n_games_bucket`, `rank`), which our parquets already carry (`data.dataset.skill_filter_indices`).
-Best recipe (content encoder + MiniLM, Set Transformer, in-pack CE), LOSO BLB+OTJ+WOE+MKM → DSK,
-8 epochs, single seed. The good-player bar `winrate ≥ 0.55 & n_games ≥ 50` keeps **36%** of picks
-(85.5k/240k). A 2×2 — {all, good} × {CE, CE + composite-WR KD} — plus a **volume-matched control**:
-a *random* 36% subsample (`rand`, same volume, mixed quality) that isolates label quality from data
-quantity. Each model is scored on the **full** holdout (top-1 vs the average human) **and** the
-**good-player** holdout (the fair top-1 test). WR-agreement vs 17lands GIH-WR.
+`user_n_games_bucket`, `rank`), already in our parquets (`data.dataset.skill_filter_indices`). Best
+recipe (content encoder + MiniLM, Set Transformer, in-pack CE + composite-WR KD target), LOSO →
+holdout DSK. Good-player bar `winrate ≥ 0.55 & n_games ≥ 50` keeps ~36% of picks. A 2×2 — {all, good}
+× {CE, CE + composite-WR} — plus a **volume-matched control** (`rand`: a *random* 36% subsample, same
+volume, mixed quality), scored on the **full** holdout (top-1 vs the average human) **and** the
+**good-player** holdout (the fair top-1 test). **Multi-seed (4 seeds)** for error bars, across two
+scales: 4 vs 7 train sets, and a small (emb256/h512/L3, ~2M) vs big (emb512/h1024/L4, ~8M) net.
 
-Reproduce: `scripts/pod_skill.py --min-winrate 0.55 --min-games 50 --volume-control`.
+Reproduce: `scripts/pod_skill.py --min-winrate 0.55 --min-games 50 --volume-control --seeds 0,1,2,3
+[--train-sets …] [--emb-dim 512 --enc-hidden 1024 --enc-layers 4]`.
 
-## Results (holdout DSK; good-player holdout = 37% of its picks)
+> **⚠ Single seed misleads here.** A single-seed run gave `good−rand WR +0.0057`, `top1-on-good
+> −0.0146`, `good/comp 0.2974` — which over-stated the WR win and "refuted" the cleaner-label
+> hypothesis. Multi-seed at scale reversed both. Trust the multi-seed numbers below; the deltas are
+> ~0.005–0.015, so sign-consistency across seeds matters more than any single value.
 
-| model | WR-agree | avg-pick-WR | top1 (all) | top1 (good) |
-|---|---|---|---|---|
-| all / base | 0.2574 | 0.5470 | 0.5710 | 0.5766 |
-| **good / base** | **0.2613** | 0.5471 | 0.5563 | 0.5591 |
-| rand / base *(=good's volume)* | 0.2555 | 0.5467 | 0.5657 | 0.5738 |
-| all / composite | 0.2902 | 0.5495 | 0.5330 | 0.5380 |
-| **good / composite** | **0.2974** | 0.5501 | 0.5198 | 0.5256 |
-| rand / composite | 0.2825 | 0.5485 | 0.5266 | 0.5330 |
-| *human (all)* | 0.2981 | 0.5509 | — | — |
-| *human (good)* | **0.3147** | — | — | — |
+## Multi-seed results (4 seeds; good−rand isolates label quality at matched volume)
 
-**Volume-matched deltas (good − rand: same data volume, only label quality differs):**
-- WR-agreement **+0.0057**  ·  top1-on-good **−0.0146**
+| config | good/comp WR-agree | good−rand WR (base) | good−rand top1-on-good |
+|---|---|---|---|
+| small net, **4 sets** | 0.2877 ± 0.0087 | +0.0018 ± 0.0070 (3/4) | −0.0076 ± 0.0051 (**0/4**) |
+| small net, **7 sets** | 0.2955 ± 0.0087 | +0.0049 ± 0.0058 (4/4) | −0.0018 ± 0.0032 (2/4) |
+| **big net, 7 sets** | **0.2988 ± 0.0052** | **+0.0158 ± 0.0039 (4/4)** | **+0.0091 ± 0.0064 (4/4)** |
+| *human (all) / (good)* | 0.2981 / 0.3147 | — | — |
+
+(WR-agreement vs 17lands GIH-WR; `(n/4)` = seeds with a positive delta.)
 
 ## Findings
 
-1. **Good-player data is a real WR lever — label quality, not volume.** good/base (0.2613) beats
-   both the volume-matched random subsample (0.2555, **+0.0057**) *and the full 100% data* (0.2574).
-   The ordering **good > all > rand** holds on the composite arm too (0.2974 > 0.2902 > 0.2825), so
-   it's a consistent signal, not one noisy number. Training on good drafters genuinely teaches
-   better winning-pick selection.
+1. **The good-player lever is real, and it *grows with scale*.** good−rand WR (the clean
+   quality-vs-quantity test) climbs **+0.0018 → +0.0049 → +0.0158** as we add sets then capacity, and
+   goes from 3/4 → 4/4 → 4/4 seeds positive. At the largest scale a bigger net extracts ~3× more value
+   from the cleaner good-player labels than the small net does. So good-player *labels* are genuinely
+   better — the model just needs enough capacity + diversity to exploit them.
 
-2. **The "cleaner label → higher top-1" hypothesis is refuted — even at matched volume.** The random
-   36% predicts the good-player holdout *better* than the good 36% does (top1-on-good **−0.0146**).
-   The reason is structural: top-1 rewards the *popular* pick, and good players deviate from popular
-   toward higher-WR (less common) cards — so good-player training pulls the model *away* from the
-   consensus the metric scores. The ~0.58 top-1 ceiling is **not** a bad-player-noise problem you can
-   filter out; good players are, if anything, *harder* to predict on a consensus metric.
+2. **The "cleaner label → better top-1" hypothesis is vindicated *at scale* (and refuted at small
+   scale).** good−rand top1-on-good goes **−0.0076 (0/4) → −0.0018 (2/4) → +0.0091 (4/4)**. At the big
+   net + 7 sets, training on good players reliably predicts good drafters *better* — the cleaner-label
+   effect the small-scale run couldn't see. The earlier "refuted" was an artifact of too-small scale.
 
-3. **New best "good, not just human" config: good players + composite-WR target → WR-agreement
-   0.2974**, which essentially **matches the average human (0.2981)** — the first config to reach the
-   average-human WR-agreement bar (prior best 0.2933, [distillation.md](distillation.md)). Still short
-   of the good-human bar (0.3147), but the gap to average humans is ~closed.
+3. **Capacity does NOT raise the WR-agreement ceiling.** big good/comp (0.2988 ± 0.0052) ≈ small
+   (0.2955 ± 0.0087) — a +0.0033 difference, **inside the noise.** The single-seed 0.3033 that prompted
+   this test was seed luck plus the 4→7-set effect. The ~0.29–0.30 ceiling is **signal-bound (GIH-WR's
+   confound), not capacity-bound** — more parameters can't extract signal the label lacks. Capacity
+   helps the *levers* (amplifies good-player quality, flips top1-on-good positive), not the absolute bar.
 
-4. **The lever is real but minor, and partly redundant with the WR target.** good−all on the baseline
-   is +0.0039 WR-agreement; the composite WR target alone gets +0.0328. Both push toward winning
-   picks, so stacking them adds only a little (the redundancy is why good/comp 0.2974 only edges
-   all/comp 0.2902). Good-player filtering is a worthwhile *complement* to the WR target, not a
-   replacement.
+4. **Best confirmed "good, not just human" config: big net + good players + composite-WR + 7 sets →
+   WR-agreement 0.299 ± 0.005**, matching the average human (0.298), now with good-player labels
+   *helping* both WR and top1-on-good. Still short of the good-human bar (0.315).
 
 ## Interpretation / caveats
 
-- **Single seed; deltas are ~0.005.** Magnitude alone is within run-to-run noise — the credibility
-  comes from the *consistent ordering* across arms (good > all > rand on WR; rand > all > good on
-  top1-on-good), not the third decimal. A multi-seed pass would firm the numbers.
-- **The volume control matters.** Without it the first run's top-1 drop (−0.021) looked like it might
-  be label quality; the control shows it is *not* even volume — good-player training lowers top-1 on
-  its own terms. Always match volume when comparing a filtered subset to the whole.
-- **GIH-WR is the binding ceiling, again.** Every WR-agreement result clusters at 0.29–0.31:
-  average humans 0.298, good humans 0.315, our best model 0.297. Filtering to good players moves the
-  model *toward* the average-human bar but can't pass the good-human bar, because the *target signal*
-  (GIH-WR) is itself a confounded proxy. Surpassing this needs a less-confounded value signal
-  (game_data), not better human labels.
+- **Single seed at small scale was doubly misleading** — it over-stated the WR win *and* hid the
+  top-1 benefit. Both only appear with multi-seed *and* enough capacity/diversity. Lesson: confirm
+  small effects with multiple seeds, and don't conclude a lever is dead from one under-scaled run.
+- **One capacity step** (small vs big), single bar (winrate ≥ 0.55). The amplification is credible
+  (4/4 sign-consistency, tight stds) but not a capacity *curve*.
+- **GIH-WR is still the binding ceiling.** Everything clusters at 0.29–0.30: avg human 0.298, our best
+  0.299, good human 0.315. Capacity + good players sharpen the levers but cannot pass the confounded
+  *target signal*. Breaking past 0.30 needs a less-confounded value signal — **game_data**
+  ([../game-data-plan.md](../game-data-plan.md)).
 
 ## Next
 
-- **Best recipe to date for picking well:** good-player training + composite-WR target. Bank it after
-  a multi-seed confirmation of the +0.005 deltas.
-- **The remaining lever with real headroom is game_data** — a match-outcome value model less confounded
-  than GIH-WR (roadmap Phase 4). Skill filtering, composite fields, and more sets have each been shown
-  to add small WR gains; depth and the top-1 ceiling are dead ends.
+- Bankable recipe: **big + good-players + composite-WR + 7 sets** (WR 0.299 ± 0.005).
+- The remaining lever with headroom is the **game_data value model** (Phase 4) — a match-outcome card
+  value less confounded than GIH-WR. Capacity, good players, richer fields, and more sets each add
+  small WR gains; depth and the top-1 ceiling are dead ends.
