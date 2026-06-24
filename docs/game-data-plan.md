@@ -60,9 +60,13 @@ writeup: [`results/game-data-value-model.md`](results/game-data-value-model.md).
 - `β_c` meaningfully differs (demotes mediocre-but-ride-along cards, promotes genuinely impactful
   ones) → **proceed**. This gates the expensive ingest on evidence the new signal is actually new.
 
-**Step 1 — full value model (≈2–3 days).** Ingest game_data for the train sets (sample mode first —
-full is GBs/set), fit per-set value models, emit a per-card adjusted-value file shaped like a ratings
-JSON (so it's a drop-in field). Validate face-plausibility (bombs/removal high, filler low) + stability.
+**Step 1 — full value model. ✅ DONE (2026-06-24).** Built `deck_value` for all 8 corpus sets (150k
+games/set, l2=30) via `scripts/game_value_build.py` → `gamevalue/<SET>.PremierDraft.gamevalue.json`
+(ratings-shaped, pushed to HF; `align_winrates(field="deck_value")` / `composite_card_quality` consume
+it unchanged). CPU-only, ~3 min. **Validated:** face-plausible in every set (top = the format's bombs:
+Oko/OTJ, Gruff Triplets/WOE, Elesh Norn/MOM, …), Sp(β,IWD) mean **0.625** (all ≪ 0.95 → its own signal
+in every set, DSK wasn't special), split-half stability ρ mean **0.644**, reprint consistency ρ=0.86.
+Full writeup: [`results/game-data-value-model.md`](results/game-data-value-model.md#step-1--the-full-per-set-value-field-done-2026-06-24).
 
 **Step 2 — use it (≈1–2 days).** Plug the adjusted value into the composite-WR target and re-run the
 best config (good players + composite). Evaluate on **estimated deck-WR** *and* WR-agreement-vs-adjusted.

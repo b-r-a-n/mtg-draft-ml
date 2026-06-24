@@ -85,6 +85,7 @@ _COUNT_FOR = {                                # confidence (game/observation cou
     "avg_pick": "pick_count",
     "avg_seen": "seen_count",
     "win_rate": "game_count",
+    "deck_value": "deck_value_support",  # game_data marginal-value field (eval.game_value)
 }
 
 

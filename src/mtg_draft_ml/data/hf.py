@@ -23,6 +23,7 @@ _ALL_PATTERNS = [
     "manifests/*.json",     # per-set card vocab
     "scryfall/*.json",      # per-set Scryfall card records (for the content encoder)
     "ratings/*.json",       # 17lands GIH-WR ratings (for WR-agreement + aux-WR)
+    "gamevalue/*.json",     # game_data per-card marginal-value field (eval.game_value, Step 1)
     "cards/*.parquet",      # precomputed feature/embedding tables (future)
 ]
 

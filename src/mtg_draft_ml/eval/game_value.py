@@ -106,6 +106,35 @@ def fit_card_values(
     }
 
 
+def build_value_ratings(
+    beta: np.ndarray,
+    support: np.ndarray,
+    card_names: list[str],
+    set_code: str | None = None,
+    event_type: str = "PremierDraft",
+    min_support: float = 1000.0,
+) -> list[dict]:
+    """Shape per-card beta into a 17lands-ratings-style record list (a drop-in card-value field).
+
+    Each record is `{name, deck_value, deck_value_support}` — the same `{name, <field>}` shape the
+    17lands ratings JSONs use, so `align_winrates(..., field="deck_value")` and
+    `composite_card_quality` consume it unchanged (and `deck_value_support` is its shrink/confidence
+    count, registered in `winrate._COUNT_FOR`). Cards below `min_support` total deck-copies get
+    `deck_value=None` (beta is noisy there) so they're treated as missing, not as a real low value.
+    """
+    recs = []
+    for i, name in enumerate(card_names):
+        s = int(support[i])
+        recs.append({
+            "name": name,
+            "set": set_code,
+            "event_type": event_type,
+            "deck_value": (round(float(beta[i]), 6) if s >= min_support else None),
+            "deck_value_support": s,
+        })
+    return recs
+
+
 def _rank_corr(a: np.ndarray, b: np.ndarray) -> float:
     """Spearman rho over the finite-in-both entries (rank then Pearson)."""
     m = np.isfinite(a) & np.isfinite(b)

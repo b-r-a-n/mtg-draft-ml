@@ -8,9 +8,11 @@ from mtg_draft_ml.data.game_preprocess import preprocess_game_set
 from mtg_draft_ml.eval.game_value import (
     _rank_corr,
     _rankdata,
+    build_value_ratings,
     compare_to_ratings,
     fit_card_values,
 )
+from mtg_draft_ml.eval.winrate import align_winrates
 
 # Manifest cards A,B,C,D (D absent from the game CSV -> stays all-zero). The game CSV mimics the
 # real schema: per-card deck_/drawn_ columns (only deck_ is used) + game controls + `won`. One
@@ -105,6 +107,26 @@ def test_fit_recovers_card_signal():
     assert beta[0] > beta[2]
     assert _rank_corr(beta, true) > 0.5
     assert 0.0 <= fit["train_acc"] <= 1.0
+
+
+def test_build_value_ratings_and_roundtrip(tmp_path):
+    beta = np.array([0.30, -0.20, 0.05, 0.99], dtype=np.float32)
+    support = np.array([5000, 5000, 5000, 200], dtype=np.float32)  # card D below min_support
+    names = ["A", "B, the Big", "C", "D"]
+    recs = build_value_ratings(beta, support, names, set_code="TST", min_support=1000)
+
+    assert [r["name"] for r in recs] == names
+    assert recs[0]["deck_value"] == 0.3 and recs[0]["deck_value_support"] == 5000
+    assert recs[3]["deck_value"] is None  # low support -> excluded, not a real low value
+    assert all(r["set"] == "TST" for r in recs)
+
+    # round-trips through align_winrates as a 17lands-ratings-shaped field
+    man = tmp_path / "manifest.json"; man.write_text(json.dumps(MANIFEST))
+    gv = tmp_path / "gv.json"; gv.write_text(json.dumps(recs))
+    arr = align_winrates(man, gv, field="deck_value")
+    assert arr.shape == (4,)
+    np.testing.assert_allclose(arr[:3], [0.30, -0.20, 0.05], rtol=1e-5)
+    assert np.isnan(arr[3])  # low-support card comes back missing
 
 
 def test_compare_to_ratings(tmp_path):

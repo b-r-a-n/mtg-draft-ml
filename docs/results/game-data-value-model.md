@@ -95,3 +95,65 @@ well-sampled-stable). It is a candidate to drop into `composite_card_quality` / 
 and—per the plan—to power an **estimated deck-WR** eval. The open question Step 1 must answer is not
 "is it different" (it is) but **"is the de-confounded target the one that finally pushes WR-agreement
 past the 0.29–0.31 GIH-WR ceiling."**
+
+---
+
+# Step 1 — the full per-set value field (DONE, 2026-06-24)
+
+Built `deck_value` for all 8 corpus sets (150k-game sample each, l2=30), shaped as a
+17lands-ratings-style file (`gamevalue/<SET>.PremierDraft.gamevalue.json`, on HF) with `deck_value` +
+`deck_value_support`, so `align_winrates(field="deck_value")` and `composite_card_quality` consume it
+**unchanged** (round-trip verified in tests). CPU/network only (~3 min for all 8 sets), no GPU.
+Reproduce: `uv run python scripts/game_value_build.py --sample-rows 150000 --l2 30`.
+
+| set | games | cards valued | train acc | Sp(β,IWD) | Sp(β,IWD) well | split-half ρ |
+|---|---|---|---|---|---|---|
+| BLB | 150k | 258 | 0.593 | 0.671 | 0.701 | 0.717 |
+| OTJ | 150k | 327 | 0.588 | 0.563 | 0.599 | 0.635 |
+| WOE | 150k | 275 | 0.594 | 0.573 | 0.558 | 0.519 |
+| MKM | 150k | 271 | 0.591 | 0.625 | 0.648 | 0.606 |
+| DSK | 150k | 264 | 0.590 | 0.691 | 0.698 | 0.779 |
+| LCI | 150k | 277 | 0.601 | 0.678 | 0.669 | 0.662 |
+| MH3 | 150k | 277 | 0.599 | 0.554 | 0.599 | 0.621 |
+| MOM | 150k | 346→326 | 0.597 | 0.644 | 0.650 | 0.611 |
+| **mean** | | | | **0.625** | **0.640** | **0.644** |
+
+**Generalizes — DSK was not special.** Every set shows the same pattern as the Step-0 DSK probe:
+Sp(β,IWD) ≈ 0.55–0.69 (mean 0.625, all ≪ 0.95) — the value field is its own signal in every set, not
+a re-derivation of IWD.
+
+**Stable.** Split-half ρ (fit on the first vs second half of games, well-sampled cards) averages
+**0.644** (0.52–0.78). WOE is the noisiest (0.52); a larger sample would tighten the tail, but every
+set's split-halves agree well above chance — β is signal, not sampling noise. **Reprint consistency:**
+the 8 cards appearing well-sampled in ≥2 sets get a consistent `deck_value` across sets (cross-set
+ρ=0.86, mean spread 0.048), evidence the field measures a real card property, not a per-set artifact.
+
+**Face-plausible in every set** — the top of `deck_value` is each format's recognized bomb list:
+
+| set | top `deck_value` cards | bottom |
+|---|---|---|
+| BLB | Maha Its Feathers Night, Fecund Greenshell, Ygra Eater of All | lands / Three Tree Mascot |
+| OTJ | **Oko Thief of Crowns**, Rakdos the Muscle, Bonny Pall | dual lands / Hindering Light |
+| WOE | **Gruff Triplets**, Virtue of Persistence, Faunsbane Troll | lands / Vampiric Rites |
+| MKM | Vein Ripper, Cryptic Coat, Aurelia's Vindicator | lands / Case of the Shattered Pact |
+| DSK | Overlord of the Mistmoors, Valgavoth's Onslaught, Ghostly Dancers | dual lands |
+| LCI | Aclazotz, Bonehoard Dracosaur, Preacher of the Schism | lands / Pit of Offerings |
+| MH3 | Guide of Souls, Ocelot Pride, Phlage | lands / Imskir Iron-Eater |
+| MOM | **Elesh Norn**, Sunfall, Vorinclex, Chandra Hope's Beacon | lands / Glistening Deluge |
+
+## Caveats / what's deferred to Step 2
+
+- **Lands sit at the bottom by construction** (marginal value of one more copy, deck size fixed) — so
+  `deck_value` is a *spell-quality* field; don't read it as a land-count signal.
+- **Blending with GIH+IWD needs a merge.** `composite_card_quality` reads all fields from one ratings
+  file per set; to blend `deck_value` *with* GIH/IWD, Step 2 must either merge `deck_value` into a copy
+  of each set's ratings JSON or extend the composite to take multiple files per set. Standalone
+  `deck_value` already composites fine (verified).
+- **Sample, not full.** 150k games/set; WOE's lower stability suggests the noisier sets could use more.
+
+## Next → Step 2 (needs a GPU pod)
+
+Plug `deck_value` into the composite-WR target (good players + composite, 7-set big net — the
+seed-confirmed best config), re-run, and read **WR-agreement-vs-deck_value** *and* the estimated
+deck-WR eval. The bar from the multi-seed prereq: a real lift must clear **~0.01** (≈2σ) over the
+0.2988 ± 0.0052 ceiling to count.
