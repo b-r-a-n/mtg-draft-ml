@@ -1,6 +1,10 @@
 # Next work — game_data value model (the less-confounded signal)
 
-**Status:** scoped, not started. The one remaining lever with real headroom after the
+**Status:** **Step 0 done → PROCEED** (2026-06-24). The go/no-go ran on DSK (80k-game sample): the
+per-game β_c is a genuinely different, less-confounded card-value ranking — Spearman(β, IWD) = **0.60**
+(≪ 0.95 stop-threshold), flat across L2 ∈ [1, 1000], well-sampled-stable, face-plausible (bombs/removal
+top, lands/filler bottom). Full result: [`docs/results/game-data-value-model.md`](results/game-data-value-model.md).
+**Step 1 (full value model) is greenlit.** The one remaining lever with real headroom after the
 distillation + data investigation (see `docs/results/`).
 
 ## Why this, why now
@@ -45,9 +49,13 @@ actually care about (roadmap "estimated deck-WR").
 
 ## Staged plan — with a go/no-go gate (don't build big on an uncertain payoff)
 
-**Step 0 — go/no-go (≈1 day, one set, cheap).** Add `download_17lands_game` (mirror the draft
-downloader, different URL) + a slim game→deck-matrix preprocessor. Fit the regression on a *sample*
-of DSK games. **Compare `β_c` to GIH-WR and IWD** (Spearman + which cards move most). Decision:
+**Step 0 — go/no-go (≈1 day, one set, cheap). ✅ DONE → PROCEED.** Added `download_17lands_game`
+(`data/download.py`), a slim game→deck-matrix preprocessor (`data/game_preprocess.py`), the L2
+logistic fit + ratings comparison (`eval/game_value.py`), and the driver `scripts/game_value_gonogo.py`.
+Ran on DSK (80k games). **Spearman(β, IWD) = 0.60, Spearman(β, GIH) = 0.72** — well below the 0.95
+stop-line, signal-not-noise (flat across L2, well-sampled-stable), face-plausible. β demotes
+"swingy-when-drawn" cards IWD over-rates and promotes solid contributors IWD under-rates. Full
+writeup: [`results/game-data-value-model.md`](results/game-data-value-model.md). Original gate:
 - `β_c` ≈ IWD (corr ≳ 0.95) → game_data adds little de-confounding beyond IWD we already use → **stop**.
 - `β_c` meaningfully differs (demotes mediocre-but-ride-along cards, promotes genuinely impactful
   ones) → **proceed**. This gates the expensive ingest on evidence the new signal is actually new.

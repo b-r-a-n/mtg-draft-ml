@@ -18,6 +18,12 @@ _17L_TMPL = (
     "https://17lands-public.s3.amazonaws.com/analysis_data/draft_data/"
     "draft_data_public.{set_code}.{event_type}.csv.gz"
 )
+# 17lands per-game data — one row per GAME (not pick), with `won` + per-card deck/draw columns.
+# Same bucket, different path/prefix. e.g. .../game_data_public.DSK.PremierDraft.csv.gz
+_17L_GAME_TMPL = (
+    "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/"
+    "game_data_public.{set_code}.{event_type}.csv.gz"
+)
 # 17lands aggregate card ratings (GIH WR, ALSA, IWD, ...) per set/format.
 # A date range is REQUIRED — without it the API returns all-zero counts / null win rates.
 _17L_RATINGS = ("https://www.17lands.com/card_ratings/data?expansion={set_code}"
@@ -55,22 +61,58 @@ def download_17lands_draft(
 
     if sample_rows:
         out = dest_dir / f"{set_code}.{event_type}.sample{sample_rows}.csv"
-        if out.exists() and not force:
-            return out
-        with requests.get(url, stream=True, timeout=timeout) as r:
-            r.raise_for_status()
-            r.raw.decode_content = False  # the body *is* a gzip file; decode it ourselves
-            with gzip.GzipFile(fileobj=r.raw) as gz, open(out, "wb") as f:
-                for i, line in enumerate(gz):
-                    f.write(line)
-                    if i >= sample_rows:  # header is line 0, then sample_rows rows
-                        break
-        return out
+        return _stream_sample(requests, url, out, sample_rows, force, timeout)
 
     out = dest_dir / f"{set_code}.{event_type}.csv.gz"
     if out.exists() and not force:
         return out
     _stream_to_file(requests, url, out, timeout)
+    return out
+
+
+def download_17lands_game(
+    set_code: str,
+    event_type: str = "PremierDraft",
+    dest_dir: str | pathlib.Path = "data/raw",
+    sample_rows: int | None = None,
+    force: bool = False,
+    timeout: int = 120,
+) -> pathlib.Path:
+    """Download a 17lands per-GAME data CSV (`game_data_public.*`). Returns the local path.
+
+    Same shape/semantics as `download_17lands_draft` (a different S3 prefix): one row per game with
+    a binary `won` label, per-card `deck_/drawn_/opening_hand_/...` columns, and game controls
+    (`on_play`, `num_mulligans`, `user_game_win_rate_bucket`, ...). The full file is GBs/set, so
+    `sample_rows=N` (stream-decompress + keep header + first N rows) is the default for local work.
+    """
+    requests = _require_requests()
+    dest_dir = pathlib.Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    url = _17L_GAME_TMPL.format(set_code=set_code, event_type=event_type)
+
+    if sample_rows:
+        out = dest_dir / f"game.{set_code}.{event_type}.sample{sample_rows}.csv"
+        return _stream_sample(requests, url, out, sample_rows, force, timeout)
+
+    out = dest_dir / f"game.{set_code}.{event_type}.csv.gz"
+    if out.exists() and not force:
+        return out
+    _stream_to_file(requests, url, out, timeout)
+    return out
+
+
+def _stream_sample(requests, url, out, sample_rows, force, timeout) -> pathlib.Path:
+    """Stream-decompress a gzipped 17lands CSV and keep only header + first `sample_rows` rows."""
+    if out.exists() and not force:
+        return out
+    with requests.get(url, stream=True, timeout=timeout) as r:
+        r.raise_for_status()
+        r.raw.decode_content = False  # the body *is* a gzip file; decode it ourselves
+        with gzip.GzipFile(fileobj=r.raw) as gz, open(out, "wb") as f:
+            for i, line in enumerate(gz):
+                f.write(line)
+                if i >= sample_rows:  # header is line 0, then sample_rows rows
+                    break
     return out
 
 
@@ -149,13 +191,17 @@ def _stream_to_file(requests, url, out, timeout, headers=None):
 if __name__ == "__main__":  # pragma: no cover
     import argparse
 
-    ap = argparse.ArgumentParser(description="Download 17lands draft + Scryfall data")
+    ap = argparse.ArgumentParser(description="Download 17lands draft/game + Scryfall data")
     ap.add_argument("--set", dest="set_code", required=True)
     ap.add_argument("--event", dest="event_type", default="PremierDraft")
     ap.add_argument("--dest", default="data/raw")
     ap.add_argument("--sample-rows", type=int, default=None)
+    ap.add_argument("--game", action="store_true", help="fetch per-game data instead of draft picks")
     ap.add_argument("--scryfall", action="store_true", help="also fetch Scryfall oracle bulk")
     a = ap.parse_args()
-    print("draft:", download_17lands_draft(a.set_code, a.event_type, a.dest, sample_rows=a.sample_rows))
+    if a.game:
+        print("game:", download_17lands_game(a.set_code, a.event_type, a.dest, sample_rows=a.sample_rows))
+    else:
+        print("draft:", download_17lands_draft(a.set_code, a.event_type, a.dest, sample_rows=a.sample_rows))
     if a.scryfall:
         print("scryfall:", download_scryfall_oracle())

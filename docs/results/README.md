@@ -131,6 +131,9 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
 
 ## Detailed docs
 
+- [game-data-value-model.md](game-data-value-model.md) — **game_data Step-0 go/no-go**: per-game
+  outcome regression β_c vs GIH-WR/IWD. **Verdict: PROCEED** — β is a genuinely different,
+  less-confounded signal (Spearman(β,IWD)=0.60, flat under regularization).
 - [distillation.md](distillation.md) — soft-label KD: ensemble / WR-softmax / leaky-feature (DD-004).
 - [good-players.md](good-players.md) — skill-filtered training + the volume-matched control.
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the
