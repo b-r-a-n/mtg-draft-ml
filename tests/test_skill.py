@@ -7,7 +7,7 @@ torch = pytest.importorskip("torch")
 
 from mtg_draft_ml.data.dataset import skill_filter_indices  # noqa: E402
 from mtg_draft_ml.data.preprocess import preprocess_set  # noqa: E402
-from mtg_draft_ml.distill.skill import run_skill_experiment  # noqa: E402
+from mtg_draft_ml.distill.skill import run_skill_experiment, run_skill_multiseed  # noqa: E402
 
 SCRY = [{"name": n, "oracle_id": n.lower(), "cmc": float(i), "type_line": "Creature",
          "colors": ["R"], "color_identity": ["R"], "rarity": "common", "oracle_text": f"text {n}"}
@@ -104,3 +104,23 @@ def test_run_skill_experiment_end_to_end(tmp_path):
             m = res[k][view]
             assert 0.0 <= m["top1"] <= 1.0
             assert m["wr_agreement_model"] is not None
+
+
+def test_run_skill_multiseed(tmp_path):
+    pq_a, man_a, scry = _prep(tmp_path, "A", GOOD_DRAFTS * 2, ["A", "B", "C", "D"])
+    bdrafts = [("e1", 0.62, 100, "mythic", ["E", "A"]), ("e2", 0.60, 80, "diamond", ["F", "B"]),
+               ("e3", 0.58, 100, "platinum", ["A", "E"]), ("e4", 0.57, 60, "mythic", ["B", "F"])]
+    pq_b, man_b, _ = _prep(tmp_path, "B", bdrafts * 2, ["A", "B", "E", "F"])
+    rat_a = _rich_ratings(tmp_path, "A", {"A": .60, "B": .55, "C": .50, "D": .47})
+    rat_b = _rich_ratings(tmp_path, "B", {"A": .60, "B": .55, "E": .52, "F": .48})
+    agg = run_skill_multiseed(
+        [{"parquet": pq_a, "manifest": man_a, "scryfall": scry, "ratings": rat_a}],
+        {"parquet": pq_b, "manifest": man_b, "scryfall": scry}, holdout_ratings=rat_b,
+        seeds=[0, 1], min_winrate=0.5, min_games=10,
+        embedder="hash", emb_dim=16, enc_hidden=32, enc_layers=2, pool="set_transformer",
+        epochs=2, batch_size=4, val_frac=0.5, warmup_frac=0.0, grad_clip=0.0, device="cpu",
+        checkpoint_dir=str(tmp_path / "ck"),
+    )
+    assert agg["n"] == 2
+    for key in ("good-rand WR (base)", "good/comp WR-agree"):
+        assert "mean" in agg[key] and len(agg[key]["vals"]) == 2

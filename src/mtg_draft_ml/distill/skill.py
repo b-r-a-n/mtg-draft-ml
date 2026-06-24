@@ -15,6 +15,7 @@ get better at predicting *good* drafters).
 from __future__ import annotations
 
 import json
+import statistics
 
 import torch
 
@@ -117,6 +118,42 @@ def run_skill_experiment(
         json.dump(results, open(out_json, "w"), indent=2, default=float)
         print(f"\nwrote {out_json}")
     return results
+
+
+def run_skill_multiseed(train_specs, holdout_spec, *, seeds=(0, 1, 2, 3), out_json=None, **kw):
+    """Run the volume-control skill experiment across seeds; aggregate the key metrics (mean ± std).
+
+    Confirms the small (~0.005) good-vs-rand / good-comp deltas are real, not single-seed noise —
+    reporting mean, std, and sign-consistency (how many seeds the delta is positive).
+    """
+    kw.pop("seed", None)
+    kw.pop("volume_control", None)
+    runs = []
+    for s in seeds:
+        print(f"\n################ SEED {s} ################", flush=True)
+        runs.append(run_skill_experiment(train_specs, holdout_spec, seed=s, volume_control=True, **kw))
+
+    metrics = {
+        "good/comp WR-agree": lambda r: r["good_comp"]["full"]["wr_agreement_model"],
+        "all/comp WR-agree": lambda r: r["all_comp"]["full"]["wr_agreement_model"],
+        "good-rand WR (base)": lambda r: r["good_base"]["full"]["wr_agreement_model"] - r["rand_base"]["full"]["wr_agreement_model"],
+        "good-all WR (base)": lambda r: r["good_base"]["full"]["wr_agreement_model"] - r["all_base"]["full"]["wr_agreement_model"],
+        "good-rand top1-good": lambda r: r["good_base"]["good_holdout"]["top1"] - r["rand_base"]["good_holdout"]["top1"],
+    }
+    agg = {"mode": "skill_multiseed", "seeds": list(seeds), "n": len(runs)}
+    print(f"\n=== MULTI-SEED ({len(runs)} seeds) — mean ± std ===")
+    for name, fn in metrics.items():
+        vals = [fn(r) for r in runs]
+        m = statistics.mean(vals)
+        sd = statistics.pstdev(vals) if len(vals) > 1 else 0.0
+        pos = sum(v > 0 for v in vals)
+        agg[name] = {"mean": m, "std": sd, "pos_of_n": [pos, len(vals)], "vals": vals}
+        sign = f"   [{pos}/{len(vals)} seeds > 0]" if name.startswith("good-") else ""
+        print(f"  {name:<22} {m:+.4f} ± {sd:.4f}{sign}")
+    if out_json:
+        json.dump(agg, open(out_json, "w"), indent=2, default=float)
+        print(f"\nwrote {out_json}")
+    return agg
 
 
 def _print_report(r: dict):

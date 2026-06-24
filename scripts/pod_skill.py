@@ -34,22 +34,35 @@ def main():
     ap.add_argument("--ranks", default=None, help="comma list e.g. mythic,diamond,platinum")
     ap.add_argument("--volume-control", action="store_true",
                     help="add a random-subsample arm at the good-player fraction (quality vs quantity)")
+    ap.add_argument("--seeds", default=None, help="comma list -> multi-seed run (mean +/- std)")
+    # capacity knobs (test: does a bigger net help now that we use more data?)
+    ap.add_argument("--emb-dim", type=int, default=256)
+    ap.add_argument("--enc-hidden", type=int, default=512)
+    ap.add_argument("--enc-layers", type=int, default=3)
+    ap.add_argument("--n-sab", type=int, default=1)
     ap.add_argument("--epochs", type=int, default=8)
     ap.add_argument("--device", default="auto")
     a = ap.parse_args()
 
     train_sets = [s.strip() for s in a.train_sets.split(",")]
     hold = spec(a.holdout)
-    print(f"train={train_sets} holdout={a.holdout}")
-    run_skill_experiment(
-        [spec(s) for s in train_sets],
-        {"parquet": hold["parquet"], "manifest": hold["manifest"], "scryfall": hold["scryfall"]},
+    print(f"train={train_sets} holdout={a.holdout}  net=emb{a.emb_dim}/h{a.enc_hidden}/L{a.enc_layers}/sab{a.n_sab}")
+    common = dict(
         holdout_ratings=hold["ratings"], min_winrate=a.min_winrate, min_games=a.min_games,
         ranks=set(s.strip() for s in a.ranks.split(",")) if a.ranks else None,
-        volume_control=a.volume_control,
-        embedder="all-MiniLM-L6-v2", pool="set_transformer", epochs=a.epochs, device=a.device, seed=0,
-        out_json=f"data/skill_{a.holdout}_wr{a.min_winrate}{'_vc' if a.volume_control else ''}.json",
+        emb_dim=a.emb_dim, enc_hidden=a.enc_hidden, enc_layers=a.enc_layers, n_sab=a.n_sab,
+        embedder="all-MiniLM-L6-v2", pool="set_transformer", epochs=a.epochs, device=a.device,
     )
+    train = [spec(s) for s in train_sets]
+    hold_eval = {"parquet": hold["parquet"], "manifest": hold["manifest"], "scryfall": hold["scryfall"]}
+    tag = f"{a.holdout}_wr{a.min_winrate}_emb{a.emb_dim}h{a.enc_hidden}L{a.enc_layers}"
+    if a.seeds:
+        from mtg_draft_ml.distill.skill import run_skill_multiseed
+        run_skill_multiseed(train, hold_eval, seeds=[int(s) for s in a.seeds.split(",")],
+                            out_json=f"data/skill_multiseed_{tag}.json", **common)
+    else:
+        run_skill_experiment(train, hold_eval, volume_control=a.volume_control, seed=0,
+                             out_json=f"data/skill_{tag}{'_vc' if a.volume_control else ''}.json", **common)
 
 
 if __name__ == "__main__":
