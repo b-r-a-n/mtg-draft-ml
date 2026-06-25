@@ -1,5 +1,6 @@
-"""Tests for the game_data Step-0 value model: preprocess, fit, and ratings comparison."""
+"""Tests for the game_data value model: preprocess, fit, ratings comparison, and the deck_value field."""
 import json
+import pathlib
 
 import numpy as np
 
@@ -11,6 +12,7 @@ from mtg_draft_ml.eval.game_value import (
     build_value_ratings,
     compare_to_ratings,
     fit_card_values,
+    merged_ratings_with_value,
 )
 from mtg_draft_ml.eval.winrate import align_winrates
 
@@ -127,6 +129,20 @@ def test_build_value_ratings_and_roundtrip(tmp_path):
     assert arr.shape == (4,)
     np.testing.assert_allclose(arr[:3], [0.30, -0.20, 0.05], rtol=1e-5)
     assert np.isnan(arr[3])  # low-support card comes back missing
+
+
+def test_merged_ratings_with_value(tmp_path):
+    ratings = [{"name": "A", "ever_drawn_win_rate": 0.6}, {"name": "C", "ever_drawn_win_rate": 0.5}]
+    gv = [{"name": "A", "deck_value": 0.3, "deck_value_support": 5000},
+          {"name": "C", "deck_value": None, "deck_value_support": 100}]
+    rp = tmp_path / "r.json"; rp.write_text(json.dumps(ratings))
+    gp = tmp_path / "gv.json"; gp.write_text(json.dumps(gv))
+    out = merged_ratings_with_value(rp, gp, tmp_path / "merged.json")
+
+    merged = {c["name"]: c for c in json.loads(pathlib.Path(out).read_text())}
+    assert merged["A"]["ever_drawn_win_rate"] == 0.6  # original field preserved
+    assert merged["A"]["deck_value"] == 0.3 and merged["A"]["deck_value_support"] == 5000
+    assert merged["C"]["deck_value"] is None         # low-support card carried through as null
 
 
 def test_compare_to_ratings(tmp_path):

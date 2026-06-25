@@ -135,6 +135,26 @@ def build_value_ratings(
     return recs
 
 
+def merged_ratings_with_value(ratings_path, gamevalue_path, out_path):
+    """Write a copy of a 17lands ratings JSON with each card's `deck_value`/`deck_value_support`
+    merged in by name, so `composite_card_quality` can use `deck_value` as one of its fields (it reads
+    all fields from a single ratings file per set). Returns out_path."""
+    import json
+    import pathlib
+
+    ratings = json.load(open(ratings_path))
+    gv = {r["name"]: r for r in json.load(open(gamevalue_path))}
+    for c in ratings:
+        g = gv.get(c["name"])
+        if g is not None:
+            c["deck_value"] = g.get("deck_value")
+            c["deck_value_support"] = g.get("deck_value_support")
+    out_path = pathlib.Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(ratings))
+    return str(out_path)
+
+
 def _rank_corr(a: np.ndarray, b: np.ndarray) -> float:
     """Spearman rho over the finite-in-both entries (rank then Pearson)."""
     m = np.isfinite(a) & np.isfinite(b)
