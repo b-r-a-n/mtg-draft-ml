@@ -36,7 +36,8 @@ SIZE = "60000"
 # fixed diverse priority over all 16 sets; for a given holdout, ORDER = this minus the holdout, and
 # corpus size k = the first k. (holdout=DSK reproduces the original curve's [BLB..DMU] ordering.)
 PRIORITY = ["BLB", "OTJ", "WOE", "MKM", "LCI", "MH3", "MOM",
-            "FDN", "DFT", "TDM", "FIN", "EOE", "ONE", "BRO", "DMU", "DSK"]
+            "FDN", "DFT", "TDM", "FIN", "EOE", "ONE", "BRO", "DMU",
+            "SNC", "NEO", "MID", "LTR", "STX", "SIR", "PIO", "DSK"]
 GIH = "ever_drawn_win_rate"
 # the established composite-WR target (good-players.md); hold it FIXED to isolate the data-scaling effect.
 TEACHER_FIELDS = ["ever_drawn_win_rate", "drawn_improvement_win_rate", "avg_pick"]
