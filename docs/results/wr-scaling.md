@@ -53,6 +53,26 @@ artifact** — and at 15 sets the model meets-or-beats the human WR-agreement on
 (e.g. DSK 0.320 > 0.298, OTJ 0.322 > 0.285, FDN 0.300 > 0.292). (`scripts/pod_wr_scaling.py --holdout
 <SET> --sizes 7,15`.)
 
+## Pushing past 15 — the curve PEAKS at ~19, then turns over
+
+Ingested 7 more sets (SNC, NEO, MID, LTR, STX, SIR, PIO → 23 total, 22 train) and extended the curve
+(DSK holdout, 2 seeds):
+
+| sets | WR-agree:GIH | per-seed |
+|---|---|---|
+| 15 | 0.3171 ± 0.0036 | [.314, .321] |
+| **19** | **0.3260 ± 0.0051** | [.321, .331] |
+| 22 | 0.3051 ± 0.0074 | [.298, .313] |
+
+**It keeps rising to ~19 sets (peak ≈0.326), then DECLINES at 22 (−0.021, ~3σ, seed-consistent 2/2).**
+So it's **not raw count** — the sets added 19→22 are **STX, SIR, PIO** (Strixhaven 2021, Shadows
+*remastered*, *Pioneer Masters*): older / remaster / reprint-Masters sets with off-distribution draft
+environments. Padding the corpus with low-relevance sets actively *hurts* the encoder's value sense.
+
+**Refined recipe:** more *relevant, diverse* draft sets helps WR-agreement up to ~19; **don't pad with
+remaster/Masters/old sets** — quality of the corpus matters, not just quantity. The genuine WR-agreement
+peak is ≈**0.326** at ~19 recent-Standard-ish sets (vs the ~0.30 at 7 and the 0.29–0.31 GIH "ceiling").
+
 ## Why more sets helps the WR axis (hypothesis)
 
 The model is content-based; more diverse sets = broader coverage of card *types* the encoder must
@@ -63,14 +83,15 @@ improve as the encoder's value sense sharpens with corpus breadth.
 ## Caveats
 
 - ~~One holdout~~ **Confirmed on 4 holdouts** (DSK/OTJ/MOM/FDN, all +0.014–0.025) — see above.
-- **Diminishing returns past 15 unknown** — the curve is still rising at 15 (our full corpus); whether
-  it continues needs more sets (17lands has ~30+; ingest is cheap via `ingest_set.py`).
-- Single target/config; `deck_value`-target × 15-set is the obvious compounding test.
+- ~~Past 15 unknown~~ **Resolved: peaks ~19, declines at 22** when padded with remaster/Masters/old
+  sets (STX/SIR/PIO) — corpus *relevance* matters, not just count. A curated ~19 may do even better.
+- Single target/config; `deck_value`-target × ~19-set is the obvious compounding test.
 
 ## Implications
 
 Corpus size is the **cleanest lever found for WR-agreement** — and it was sitting unused because the
-saturation conclusion was read off the wrong metric. Next: (1) rotate the holdout to confirm; (2)
-push past 15 sets to find the real WR-agreement plateau; (3) re-run the **`deck_value` target at 15
-sets** to see if the two levers compound; (4) the outcome eval (estimated deck-WR) remains the
+saturation conclusion was read off the wrong metric — but it **peaks ~19 *relevant* sets (≈0.326)**,
+not unboundedly. Next: (1) ✅ rotated holdout (confirmed); (2) ✅ pushed past 15 (peaks ~19); (3)
+re-run the **`deck_value` target at ~19 sets** to see if the two levers compound; (4) the outcome eval
+(estimated deck-WR) remains the
 honest adjudicator. Recipe note: train the deployable on **as many diverse sets as available**, not 7.

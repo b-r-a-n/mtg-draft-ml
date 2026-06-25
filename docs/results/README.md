@@ -133,11 +133,11 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
 
 ## Detailed docs
 
-- [wr-scaling.md](wr-scaling.md) — **WR-agreement data-scaling curve**: corpus 8→16 sets; on the
-  *win-rate* axis the corpus is **NOT saturated** (the Phase-4 saturation was top-1-specific). 7→15
-  sets lifts WR-agree:GIH **+0.014–0.025 across 4/4 rotated holdouts** (DSK/OTJ/MOM/FDN, mean +0.019) —
-  a confirmed break of the 0.29–0.31 ceiling from data alone, beating the deck_value target's
-  noise-level lift; model meets-or-beats human WR-agreement at 15 sets.
+- [wr-scaling.md](wr-scaling.md) — **WR-agreement data-scaling curve** (corpus 8→23 sets): on the
+  *win-rate* axis the corpus is **NOT saturated** (Phase-4 saturation was top-1-specific). 7→15 sets
+  lifts WR-agree:GIH **+0.014–0.025 across 4/4 rotated holdouts** (DSK/OTJ/MOM/FDN); it then **peaks
+  ≈0.326 at ~19 relevant sets and DECLINES at 22** when padded with remaster/Masters sets — corpus
+  *relevance* matters, not just count. Cleanest break of the 0.29–0.31 ceiling found, from data alone.
 - [game-data-value-model.md](game-data-value-model.md) — **game_data value model (Steps 0–2)**:
   per-game outcome regression β_c → `deck_value`. Step 0 = **PROCEED**; Step 1 = built for all 8 sets
   (face-plausible, split-half ρ 0.64, on HF); **Step 2 (4-seed)** = `deck_value` is a **better target**
