@@ -67,7 +67,23 @@ are power-matched and differ only in CMC), and measure the shift toward the chea
 Controlling for power shrinks the effect ~7×: most of the apparent "anti-curve" behavior was just
 "top-heavy pool = committed high-power deck." What remains is **near-zero, slightly negative** — i.e.
 the model is **curve-blind**: changing the pool's curve barely moves its pick, and if anything nudges
-*away* from the cheap card. Its pool-conditioning is **color / power / synergy, not mana curve.** That's
-exactly why the outcome metric above had to impose curve *externally* — the model doesn't draft for it
-(humans likely do, and the model still wins on per-card value/color). To get curve-aware drafting the
-model would need an explicit curve-state input or a pick-time curve term, neither of which it has.
+*away* from the cheap card. Its pool-conditioning is **color / power / synergy, not mana curve.**
+
+**And the human pick data is curve-blind too — which is the real explanation.** Same question on the
+17lands picks (`probe_curve.py --human`): how often does a drafter take a card *cheaper* than the
+highest-GIH card in the pack, split by whether their pool is top-heavy?
+
+| | balanced pool | top-heavy pool | Δ |
+|---|---|---|---|
+| all players | 0.270 | 0.270 | +0.000 |
+| **good players** | 0.266 | 0.270 | **+0.004** |
+
+Even **good players don't pick curve-fixers contextually** — the cheaper-pick rate is flat in their
+pool's curve. The reason is the **pick-vs-build split**: in Premier draft you draft a 45-card *pool*
+then *build* a 40-card deck, so **curve is fixed at build time, not pick time** — a good drafter picks
+the powerful card and cuts it later if the curve is bad. So the model is curve-blind because it
+faithfully imitates curve-blind-*at-pick* humans; there's no pick-time curve signal to learn, and a
+curve-specific training objective would model a non-pick-time decision. The right division of labor is
+the one this eval already uses: **pick for value** (the model, which beats humans) + **build for curve**
+(the deck builder above). (Synergy, unlike curve, *is* pick-time — so that, not curve, is where a
+pool-conditioned "marginal deck-WR" objective could still pay off.)

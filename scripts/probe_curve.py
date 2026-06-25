@@ -27,9 +27,14 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--set", dest="set_code", default="DSK")
     ap.add_argument("--webapp-dir", default="webapp")
+    ap.add_argument("--hf-dir", default="data/hf")
     ap.add_argument("--beta-match", type=float, default=0.04, help="max |Δβ| for the pack pair")
     ap.add_argument("--pool-size", type=int, default=5)
+    ap.add_argument("--human", action="store_true",
+                    help="instead of probing the model, ask whether HUMAN picks curve-correct")
     a = ap.parse_args(argv)
+    if a.human:
+        return _human_probe(a)
     import onnxruntime as ort
 
     cards = json.load(open(f"{a.webapp_dir}/data/{a.set_code}.cards.json"))["cards"]
@@ -79,6 +84,51 @@ def main(argv=None):
           f"(50% = curve-blind)")
     verdict = "curve-AWARE" if d.mean() > 0.05 else ("curve-BLIND" if abs(d.mean()) < 0.05 else "ANTI-curve")
     print(f"=> {verdict}")
+
+
+def _human_probe(a):
+    """Do HUMAN picks curve-correct? Fraction taking a card cheaper than the best-GIH card in the pack,
+    split by whether the pool is top-heavy. Flat => curve is decided at deck-BUILD, not pick, time."""
+    import pyarrow.parquet as pq
+
+    from mtg_draft_ml.eval.winrate import align_winrates
+    man = next(iter(__import__("pathlib").Path(f"{a.hf_dir}/manifests").glob(
+        f"{a.set_code}.PremierDraft.sample*.json")))
+    gih = align_winrates(str(man), f"{a.hf_dir}/ratings/{a.set_code}.PremierDraft.ratings.json",
+                         field="ever_drawn_win_rate")
+    cards = json.load(open(f"{a.webapp_dir}/data/{a.set_code}.cards.json"))["cards"]
+    cmc = np.zeros(len(gih))
+    for c in cards:
+        cmc[c["i"]] = c["cmc"] or 0
+    pq_path = next(iter(__import__("pathlib").Path(f"{a.hf_dir}/draft").glob(
+        f"{a.set_code}.PremierDraft.sample*.parquet")))
+    rows = pq.read_table(str(pq_path), columns=["pack_indices", "pick_idx", "pool_indices",
+                                                "user_game_win_rate_bucket"]).to_pylist()
+
+    def study(rs, label):
+        recs = []
+        for r in rs:
+            pool, pack, ch = r["pool_indices"], r["pack_indices"], r["pick_idx"]
+            if len(pool) < 8 or not np.isfinite(cmc[ch]):
+                continue
+            rated = [c for c in pack if np.isfinite(gih[c])]
+            if len(rated) < 3:
+                continue
+            best = max(rated, key=lambda c: gih[c])
+            if not np.isfinite(cmc[best]):
+                continue
+            hi = [cmc[i] >= 4 for i in pool if cmc[i] > 0]
+            highfrac = np.mean(hi) if hi else 0.0
+            recs.append((highfrac, int(ch != best and cmc[ch] < cmc[best])))
+        recs = np.array(recs); hf, tc = recs[:, 0], recs[:, 1]; med = np.median(hf)
+        lo, hi = tc[hf <= med].mean(), tc[hf > med].mean()
+        print(f"  {label}: n={len(recs)}  took-cheaper-than-best: balanced={lo:.3f} top-heavy={hi:.3f} "
+              f"Δ={hi - lo:+.3f}")
+
+    print(f"HUMAN curve-correction probe ({a.set_code}): does the cheaper-pick rate rise when curve-starved?")
+    study(rows, "all players ")
+    study([r for r in rows if (r["user_game_win_rate_bucket"] or 0) >= 0.57], "good players")
+    print("=> flat Δ means curve is a deck-BUILD decision, not a pick decision (nothing to learn at pick time)")
 
 
 if __name__ == "__main__":
