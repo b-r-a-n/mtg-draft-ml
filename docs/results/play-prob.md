@@ -46,6 +46,30 @@ cut," not game outcomes. A natural use at *pick* time: discount a card's pick va
 unlikely to make the deck (off-color, redundant high-drops), without a simulator or hand-engineered
 curve/color features. This is the concrete realization of the roadmap's "deckbuild signal" unlock.
 
+## Folding it into the pick policy — doesn't help (it belongs at build time)
+
+Tested the obvious use (`scripts/test_play_policy.py`): at each pick, reweight the model's logit by the
+buildability signal — `effective(c) = model_logit(c) + λ·logit P(played | c, pool)` — and score the
+drafted pool by the outcome eval's constrained 2-color+curve deck-WR (600 DSK drafts).
+
+| policy | deck-WR | Δ vs model | top-2-color % |
+|---|---|---|---|
+| human | 0.568 | −0.030 | 78% |
+| **model** (λ=0) | 0.598 | — | 75% |
+| model+build@0.5 | 0.599 | +0.0015 | 75% |
+| model+build@1.0 | 0.581 | −0.016 | 66% |
+| model+build@2.0 | 0.555 | −0.042 | 62% |
+
+**It doesn't improve drafting** — flat at λ=0.5 (+0.0015, noise) and *worse* at higher λ. Two reasons,
+both informative: (1) **OOD** — `P(played|pool)` was trained on *full* ~40-card pools but applied to
+*partial* mid-draft pools, so the signal is noisy exactly where it's used (color concentration goes
+*down* with λ, not up — it's adding noise, not coherence); (2) the plain model already drafts coherently
+(75% on-color ≈ humans' 78%) and the eval's deck-*builder* already handles construction, so there's
+little pick-time headroom. **Conclusion: the buildability signal is real and learnable, but belongs at
+the deck-*build* step (where it's strong and in-distribution), not folded into picks** — which is
+exactly the "pick for value, build for buildability" division the rest of the analysis converged on.
+(A partial-pool-trained `P(played)`, or using it only late in the draft, might fare better — untested.)
+
 ## Honest caveats
 
 - **This imitates human build judgment, not winning.** It answers "will good players play this card from

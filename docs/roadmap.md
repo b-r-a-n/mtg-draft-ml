@@ -94,8 +94,10 @@ the current `won`-over-composition data lacks:
   directly. `P(played | pool)` is **strongly pool-dependent and learnable** (AUC 0.81→0.93 when adding
   pool context, vs *zero* gain for `won`), and recovers castability with no feature engineering (a white
   2-drop's play-prob: 0.17 in a white-splash deck → 0.90 when white-committed).
-  ([play-prob.md](results/play-prob.md)) Next: discount pick value by `P(played|pool)` (a learned
-  buildability signal) and test whether it improves drafting.
+  ([play-prob.md](results/play-prob.md)) **Folding it into the *pick* policy doesn't help** (flat/worse
+  — OOD on partial pools + the model already drafts coherently); the signal belongs at the deck-*build*
+  step, reinforcing "pick for value, build for buildability." A build-time deckbuilder using
+  `P(played|pool)` (replacing the eval's hand-coded 2-color+curve heuristic) is the natural next use.
 - **A game simulator / self-play (principled, expensive — the long-standing gate):** removes the
   range restriction (built decks are all castable/sane) by playing out *arbitrary* decks, incl. bad
   curves, so the interaction becomes observable. This is the only path to a true value/lookahead agent.
