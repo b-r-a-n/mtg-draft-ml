@@ -66,6 +66,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--target", default="DSK", help="set to draft in the app")
     ap.add_argument("--train-sets", default="BLB,OTJ,WOE,MKM")
+    ap.add_argument("--export-sets", default=None,
+                    help="comma list of sets to export from the ONE trained model (in-distribution "
+                         "if they're in --train-sets); defaults to --target. Lets one 19-set training "
+                         "deploy many sets cheaply (retarget+quantize each, no retrain).")
     ap.add_argument("--target-in-train", action="store_true",
                     help="include the target set in training (default: held out = generalization)")
     ap.add_argument("--teacher", default="value", choices=list(TEACHER_FIELDS),
@@ -96,9 +100,7 @@ def main(argv=None):
 
     emb = get_embedder("all-MiniLM-L6-v2")
     train_specs = [_spec(s, merged_dir) for s in train_sets]
-    target = _spec(a.target, merged_dir)
     gmat, ginfo, key_to_idx, l2gs = build_multiset_content(train_specs, embedder=emb, text=True)
-    tmat, tinfo = build_content_matrix(target["manifest"], target["scryfall"], embedder=emb, text=True)
     dev = pick_device(a.device)
 
     # train (good players + composite teacher) ------------------------------------------------
@@ -120,38 +122,42 @@ def main(argv=None):
                checkpoint_every=0, n_cards=ginfo["n_cards"], epochs=a.epochs, lr=1e-3,
                warmup_frac=0.1, grad_clip=1.0, **extra)
 
-    # bake the TARGET set's content + export to ONNX ------------------------------------------
-    model.set_content(torch.from_numpy(tmat).to(dev))
+    # retarget the ONE trained model to each export set + export (no retrain) -----------------
     model.eval().to("cpu")
     out = pathlib.Path(a.out)
     (out / "model").mkdir(parents=True, exist_ok=True)
     (out / "data").mkdir(parents=True, exist_ok=True)
-    onnx_path = out / "model" / f"{a.target}.onnx"
+    export_sets = [s.strip() for s in (a.export_sets.split(",") if a.export_sets else [a.target])]
+    for s in export_sets:
+        _export_set(model, s, merged_dir, out, a, emb, dev, train_sets)
+    sets = sorted({p.name.split(".")[0] for p in (out / "data").glob("*.meta.json")})
+    (out / "data" / "sets.json").write_text(json.dumps(sets))
+    print(f"\nsets available: {sets}")
+
+
+def _export_set(model, set_code, merged_dir, out, a, emb, dev, train_sets):
+    """Retarget the trained model to `set_code`'s cards and write its ONNX + cards/packs/meta."""
+    import torch
+
+    spec = _spec(set_code, merged_dir)
+    tmat, _ = build_content_matrix(spec["manifest"], spec["scryfall"], embedder=emb, text=True)
+    model.set_content(torch.from_numpy(tmat).to("cpu"))
+    onnx_path = out / "model" / f"{set_code}.onnx"
     _export_onnx(model, onnx_path)
     if a.quantize:
         _quantize(model, onnx_path)
-
-    # card metadata for booster generation + overlay -----------------------------------------
-    cards = _card_metadata(target, a.quality_field)
-    (out / "data" / f"{a.target}.cards.json").write_text(json.dumps(cards))
-
-    # real opened packs sampled from the 17lands draft data — the empirically-correct booster
-    # distribution (captures Play Booster wildcard/land slots, mythic rate, per-card frequency
-    # exactly; no collation modeling). The app deals these and the pod passes them down.
-    packs = _real_packs(target["parquet"], n=600)
-    (out / "data" / f"{a.target}.packs.json").write_text(json.dumps(packs))
-    meta = {"set": a.target, "n_cards": len(cards["cards"]), "n_real_packs": len(packs),
-            "onnx": f"model/{a.target}.onnx",
-            "quality_field": a.quality_field, "teacher": a.teacher, "train_sets": train_sets,
-            "target_in_train": a.target_in_train, "max_pool": MAX_POOL, "max_pack": MAX_PACK,
+    cards = _card_metadata(spec, a.quality_field)
+    (out / "data" / f"{set_code}.cards.json").write_text(json.dumps(cards))
+    packs = _real_packs(spec["parquet"], n=600)
+    (out / "data" / f"{set_code}.packs.json").write_text(json.dumps(packs))
+    meta = {"set": set_code, "n_cards": len(cards["cards"]), "n_real_packs": len(packs),
+            "onnx": f"model/{set_code}.onnx", "quality_field": a.quality_field, "teacher": a.teacher,
+            "train_sets": train_sets, "target_in_train": set_code in train_sets,
+            "max_pool": MAX_POOL, "max_pack": MAX_PACK,
             "emb_dim": a.emb_dim, "enc_hidden": a.enc_hidden, "enc_layers": a.enc_layers}
-    (out / "data" / f"{a.target}.meta.json").write_text(json.dumps(meta, indent=2))
-    # index of available sets (the app reads this to populate the set picker)
-    sets = sorted({p.name.split(".")[0] for p in (out / "data").glob("*.meta.json")})
-    (out / "data" / "sets.json").write_text(json.dumps(sets))
-    print(f"\nexported: {onnx_path}  ({onnx_path.stat().st_size/1e6:.1f} MB)")
-    print(f"          {out}/data/{a.target}.cards.json  ({len(cards['cards'])} cards)")
-    print(f"          sets available: {sets}")
+    (out / "data" / f"{set_code}.meta.json").write_text(json.dumps(meta, indent=2))
+    print(f"  {set_code}: {onnx_path.stat().st_size/1e6:.1f} MB, {len(cards['cards'])} cards, "
+          f"in-train={set_code in train_sets}")
 
 
 def _export_onnx(model, path):
