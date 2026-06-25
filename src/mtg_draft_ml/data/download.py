@@ -182,9 +182,9 @@ def _stream_to_file(requests, url, out, timeout, headers=None):
         with open(out, "wb") as f:
             for chunk in r.iter_content(chunk_size=1 << 20):
                 f.write(chunk)
-                if bar:
+                if bar is not None:  # `if bar:` raises: tqdm.__bool__ is undefined when total is None
                     bar.update(len(chunk))
-        if bar:
+        if bar is not None:
             bar.close()
 
 
