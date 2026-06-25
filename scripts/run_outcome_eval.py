@@ -49,8 +49,11 @@ def main(argv=None):
     ap.add_argument("--hf-dir", default="data/hf")
     ap.add_argument("--webapp-dir", default="webapp")
     ap.add_argument("--game-npz", default=None)
+    ap.add_argument("--build", default="curve", choices=["curve", "naive", "playprob"],
+                    help="deck builder used for scoring: hand-coded 2-color+curve / naive top-N / "
+                         "LEARNED P(played|pool)")
     ap.add_argument("--unconstrained", action="store_true",
-                    help="score by naive global top-N beta (no 2-color/curve deck build)")
+                    help="(deprecated alias for --build naive)")
     ap.add_argument("--out", default="docs/results/outcome-eval.json")
     a = ap.parse_args(argv)
     import onnxruntime as ort
@@ -77,7 +80,17 @@ def main(argv=None):
     ci = [""] * n; cmc = np.zeros(n); types = ["spell"] * n
     for c in cmeta:
         ci[c["i"]] = c.get("ci", "C"); cmc[c["i"]] = c.get("cmc", 0) or 0; types[c["i"]] = c.get("t", "spell")
-    constrain = None if a.unconstrained else (ci, cmc, types)
+    build = "naive" if a.unconstrained else a.build
+    # deck builder for scoring: learned P(played|pool) / hand-coded 2-color+curve / naive top-N
+    deck_fn, sc_ci = None, None
+    if build == "playprob":
+        from mtg_draft_ml.eval.play_prob import deck_from_play_model, train_play_model
+        gcsv = str(next(iter(pathlib.Path("data/raw").glob(f"game.{a.set_code}.*.csv"))))
+        print("training P(played | pool) deckbuilder …")
+        pm = train_play_model(gcsv, str(manifest), cmeta)
+        deck_fn = lambda pool: deck_from_play_model(pm, pool, types, a.n_spells)  # noqa: E731
+    elif build == "curve":
+        sc_ci = ci
     drafts = load_drafts(parquet, limit=a.n_drafts)
     print(f"replaying {len(drafts)} drafts on {a.set_code} (model trained on {len(meta['train_sets'])} "
           f"sets, teacher={meta['teacher']}, in-distribution={meta['target_in_train']})")
@@ -89,12 +102,12 @@ def main(argv=None):
         "deckvalue_greedy": greedy_pick(beta),
         "random": random_pick(np.random.default_rng(0)),
     }
-    cca = constrain if constrain else (None, None, None)
     res = run_eval(drafts, policies, beta, intercept=0.0, n_spells=a.n_spells,
-                   ci=cca[0], cmc=cca[1], types=cca[2])
+                   ci=sc_ci, cmc=cmc, types=types, deck_fn=deck_fn)
 
     # report: deck-value logit (sum of played betas); sigma is a monotone "win-ish" view
-    build = "naive top-N" if a.unconstrained else "best 2-color + curve deck"
+    build = {"naive": "naive top-N", "curve": "2-color+curve heuristic",
+             "playprob": "LEARNED P(played|pool)"}[build]
     print(f"\n=== estimated deck-WR ({a.set_code}, {build}, {a.n_spells} spells, "
           f"{res['n_drafts']} drafts) ===")
     print(f"  {'policy':<18}{'est deck-WR':>12}{'Δ vs human':>12}{'beats human':>14}")

@@ -56,14 +56,16 @@ def build_best_deck(pool, beta, ci, cmc, types, n_spells: int = 23) -> list[int]
 
 
 def estimated_deck_wr(pool, beta, intercept: float = 0.0, n_spells: int = 23,
-                      ci=None, cmc=None, types=None) -> float:
+                      ci=None, cmc=None, types=None, deck_fn=None) -> float:
     """sigma(intercept + sum of the played spells' betas).
 
-    With `ci`/`cmc`/`types` given, the deck is the constrained best 2-color + curve deck
-    (`build_best_deck`); otherwise the cards are the naive global top-N by beta (lands fall out
-    naturally since their beta is low). `pool` is a list of global card indices.
+    Deck selection, in priority order: `deck_fn(pool)` (a learned builder, e.g. P(played|pool)) →
+    the constrained best 2-color + curve deck if `ci`/`cmc`/`types` given (`build_best_deck`) → the
+    naive global top-N by beta. `pool` is a list of global card indices.
     """
-    if ci is not None:
+    if deck_fn is not None:
+        s = sum(float(beta[i]) for i in deck_fn(pool) if np.isfinite(beta[i]))
+    elif ci is not None:
         s = sum(float(beta[i]) for i in build_best_deck(pool, beta, ci, cmc, types, n_spells))
     else:
         s = sum(sorted((float(beta[i]) for i in pool if np.isfinite(beta[i])), reverse=True)[:n_spells])
@@ -98,15 +100,16 @@ def replay(draft, pick_fn) -> list[int]:
 
 
 def run_eval(drafts, policies: dict, beta, intercept: float = 0.0, n_spells: int = 23,
-             ci=None, cmc=None, types=None) -> dict:
+             ci=None, cmc=None, types=None, deck_fn=None) -> dict:
     """Score every policy's drafted pool by estimated deck-WR over `drafts`.
 
-    `policies` maps name -> pick_fn(pool, pack, step). With `ci`/`cmc`/`types` given, each pool is
-    scored via the constrained best 2-color + curve deck. Returns per-policy mean estimated deck-WR
-    and, for each non-human policy, the fraction of drafts where it beats 'human' (if present).
+    `policies` maps name -> pick_fn(pool, pack, step). Each pool is scored by the best deck built from
+    it: `deck_fn` (a learned builder, e.g. P(played|pool)) if given, else the constrained 2-color+curve
+    deck (`ci`/`cmc`/`types`), else naive top-N. Returns per-policy mean estimated deck-WR and, for each
+    non-human policy, the fraction of drafts where it beats 'human' (if present).
     """
     pools = {name: [replay(d, fn) for d in drafts] for name, fn in policies.items()}
-    wr = {name: np.array([estimated_deck_wr(p, beta, intercept, n_spells, ci, cmc, types) for p in ps])
+    wr = {name: np.array([estimated_deck_wr(p, beta, intercept, n_spells, ci, cmc, types, deck_fn) for p in ps])
           for name, ps in pools.items()}
     out = {"n_drafts": len(drafts), "n_spells": n_spells,
            "mean": {k: float(v.mean()) for k, v in wr.items()},

@@ -44,6 +44,27 @@ because its rainbow bomb-pile can't form a legal deck. So forcing a playable dec
 - **In-distribution.** The deployed model trained on DSK (among 20 sets); this is a deck-quality
   comparison (model vs human on the same packs), not a generalization test.
 
+## Scoring with the LEARNED deckbuilder (P(played | pool))
+
+Replacing the hand-coded 2-color+curve heuristic with the **learned** `P(played | pool)` deckbuilder
+([play-prob.md](play-prob.md)) — rank the pool by P(played), take the top 23 nonland — is the right
+move *here*: at build time the pool is **full**, so the model is **in-distribution** (the opposite of
+the pick-time test, where partial pools made it OOD). `run_outcome_eval.py --build playprob`, 800 DSK
+drafts:
+
+| policy | deck-WR (learned builder) | Δ vs human | beats human |
+|---|---|---|---|
+| `deckvalue_greedy` (oracle) | 0.702 | +0.146 | 100% |
+| `gih_greedy` | 0.652 | +0.096 | 98% |
+| **model** | **0.605** | **+0.049** | **84%** |
+| human | 0.556 | — | — |
+| random | 0.450 | −0.106 | 6% |
+
+The model's edge over humans is **larger** under the learned builder (+0.049 / 84% vs the heuristic's
++0.029 / 74%) — and it needs *no* hand-coded color/curve rules, building the deck a good player would.
+This is the buildability signal used where it's strong (the build step, in-distribution), and it
+sharpens rather than softens the headline.
+
 ## How much headroom is there beyond per-card value? (≈ none)
 
 The pool-dependent considerations a "smarter" drafter would weigh — mana **curve**, contextual

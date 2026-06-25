@@ -50,6 +50,19 @@ class PlayModel:
         return self.gbm.predict_proba(F)[:, 1]
 
 
+def deck_from_play_model(pm, pool, types, n_spells: int = 23) -> list[int]:
+    """LEARNED deckbuilder: the n_spells nonland cards most likely to be played, by P(played | pool).
+
+    At build time the pool is full (~45 cards), so P(played|pool) is in-distribution — it picks the deck
+    a good player would build (color-coherent, on-curve) without any hand-coded color/curve heuristic.
+    """
+    nonland = [c for c in dict.fromkeys(pool) if types[c] != "land"]   # unique pool cards, no lands
+    if not nonland:
+        return []
+    probs = pm.probs(pool, nonland)
+    return [nonland[i] for i in np.argsort(-probs)[:n_spells]]
+
+
 def train_play_model(csv, manifest_path, cards, max_drafts: int = 12000) -> PlayModel:
     """Fit P(played | pool) on a set's game_data (deck vs sideboard, one row per built deck)."""
     import pandas as pd
