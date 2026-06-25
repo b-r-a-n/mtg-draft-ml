@@ -67,10 +67,12 @@ flagship 0.574 was DSK-specific (an easy holdout) — the honest rotated number 
 the already-unit-norm text block amplifies noise dims, and the encoder's LayerNorm already handles
 raw feature scale. **Not adopted** (kept as an off-by-default `--standardize` flag).
 
-**Data-scaling curve (holdout DSK): saturates at ~3–4 sets.** 1→2 sets +9.6 pt, but 4→7 sets
-(nearly 2× data) only +0.15 pt — within noise. The small model is **data-saturated, not
-data-limited**, so the **full-corpus GPU run is NOT justified for accuracy** — train the deployable
-model on the laptop on ~4–7 diverse sets.
+**Data-scaling curve (holdout DSK): saturates at ~3–4 sets *on top-1*.** 1→2 sets +9.6 pt, but 4→7
+sets (nearly 2× data) only +0.15 pt — within noise. The small model is **data-saturated** *for top-1*,
+so the full-corpus run is NOT justified *for accuracy*. **⚠ But this is top-1-only:** on
+**WR-agreement** the corpus is *not* saturated — extending to 15 sets lifts WR-agree:GIH +0.018 (3.5σ)
+and breaks the 0.29–0.31 ceiling ([wr-scaling.md](wr-scaling.md)). For the win-rate objective, train on
+**as many diverse sets as available**, not 4–7.
 
 **Capacity sweep (tuned, on GPU): bigger models do NOT help either.** With per-size LR + warmup +
 grad-clip (fixing an earlier fixed-LR collapse), S/M/L (2M/8M/15M) give held-out 0.579/0.577/0.577 —
@@ -131,6 +133,10 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
 
 ## Detailed docs
 
+- [wr-scaling.md](wr-scaling.md) — **WR-agreement data-scaling curve**: corpus 8→16 sets; on the
+  *win-rate* axis the corpus is **NOT saturated** (the Phase-4 saturation was top-1-specific). 7→15
+  sets lifts WR-agree:GIH **+0.018 (≈3.5σ)**, 0.303→0.320 — the cleanest break of the 0.29–0.31 ceiling
+  found, from data alone (beats the deck_value target's noise-level lift).
 - [game-data-value-model.md](game-data-value-model.md) — **game_data value model (Steps 0–2)**:
   per-game outcome regression β_c → `deck_value`. Step 0 = **PROCEED**; Step 1 = built for all 8 sets
   (face-plausible, split-half ρ 0.64, on HF); **Step 2 (4-seed)** = `deck_value` is a **better target**
