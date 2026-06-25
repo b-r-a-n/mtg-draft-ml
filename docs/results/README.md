@@ -133,6 +133,10 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
 
 ## Detailed docs
 
+- [play-prob.md](play-prob.md) — **P(played | pool)**: the pool-dependent dynamic (color
+  commitment / curve / castability) that `won` couldn't teach **IS strongly learnable from the build
+  decision** (deck vs sideboard): pool context lifts AUC 0.81→0.93 and recovers castability (a white
+  2-drop: 0.17 play-prob in a white-splash deck → 0.90 when committed). The signal lives in the *build*.
 - [outcome-eval.md](outcome-eval.md) — **outcome eval** (the decisive, non-circular test): replay
   held-out drafts, score each policy's drafted pool by the game_data deck-value model. **The model's
   decks beat the humans' by +0.063 est. deck-WR in 95% of drafts** (GIH-trained, deck_value-scored).

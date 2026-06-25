@@ -89,9 +89,13 @@ eval, and the nonlinearity/synergy bound. Conclusions (see Status above + `docs/
 
 **What would actually unlock the pool-dependent dynamic** (curve/castability/synergy) — i.e. the signal
 the current `won`-over-composition data lacks:
-- **Deckbuild signal (cheapest, already in `game_data`):** `deck_<card>` vs `sideboard_<card>` encodes
-  what good players *cut* from their pool — the build-time curve/castability judgment, directly. Learn
-  "given this pool, what's played vs sided" instead of trying to read curve off noisy `won`.
+- **Deckbuild signal (cheapest, already in `game_data`) — ✅ PROTOTYPED, it works:** `deck_<card>` vs
+  `sideboard_<card>` encodes what good players *cut* — the build-time curve/castability judgment,
+  directly. `P(played | pool)` is **strongly pool-dependent and learnable** (AUC 0.81→0.93 when adding
+  pool context, vs *zero* gain for `won`), and recovers castability with no feature engineering (a white
+  2-drop's play-prob: 0.17 in a white-splash deck → 0.90 when white-committed).
+  ([play-prob.md](results/play-prob.md)) Next: discount pick value by `P(played|pool)` (a learned
+  buildability signal) and test whether it improves drafting.
 - **A game simulator / self-play (principled, expensive — the long-standing gate):** removes the
   range restriction (built decks are all castable/sane) by playing out *arbitrary* decks, incl. bad
   curves, so the interaction becomes observable. This is the only path to a true value/lookahead agent.
