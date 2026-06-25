@@ -188,6 +188,26 @@ vs **deck_value** (the de-confounded "estimated deck-WR"). Three teacher targets
 - **The circularity is unresolved.** WR-agree:deck_value rewards training-toward-`deck_value` almost by
   construction, and GIH (the confounded metric) can't adjudicate whether `deck_value` is *better*.
 
+## Compounding test — corpus breadth SUBSUMES the deck_value target (2 seeds, 19 sets)
+
+Does the de-confounded target stack with the corpus-scaling lift ([wr-scaling.md](wr-scaling.md),
+which peaks ≈0.326 at ~19 sets using the plain GIH-composite)? Re-ran the three targets at **19 sets**,
+holdout DSK:
+
+| target @ 19 sets | top-1 | WR-agree:GIH | WR-agree:deck_value |
+|---|---|---|---|
+| `gih` (composite) | 0.545 | **0.3260** | 0.3194 |
+| `+value` | 0.544 | 0.3213 (−0.005) | 0.3197 (+0.000) |
+| `value`-only | 0.559 | 0.3161 (−0.010) | 0.3184 (−0.001) |
+
+**No compounding.** At 19 sets, adding `deck_value` to the target gives **nothing** — flat-to-negative
+on both metrics. (At 7 sets it had helped: value-agree +0.023, Step 2.) With a big diverse corpus the
+plain GIH-composite teacher *already* learns a value sense that agrees with `deck_value` as well as the
+`deck_value` target does, so the de-confounded target is **redundant at scale**. `gih@19`=0.3260 here
+reproduces the scaling run's 0.326 exactly (same seeds) — cross-script validation. **The dominant lever
+is corpus breadth, not the target.** (`deck_value` stays useful as the webapp dial + the de-confounded
+*eval*; just not as a training target once the corpus is large.)
+
 ## What's still owed (the decisive test)
 
 An **outcome eval**: score the model's drafted *pool* by the game_data model's estimated deck win

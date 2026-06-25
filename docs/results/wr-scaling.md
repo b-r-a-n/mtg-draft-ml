@@ -91,7 +91,7 @@ improve as the encoder's value sense sharpens with corpus breadth.
 
 Corpus size is the **cleanest lever found for WR-agreement** — and it was sitting unused because the
 saturation conclusion was read off the wrong metric — but it **peaks ~19 *relevant* sets (≈0.326)**,
-not unboundedly. Next: (1) ✅ rotated holdout (confirmed); (2) ✅ pushed past 15 (peaks ~19); (3)
-re-run the **`deck_value` target at ~19 sets** to see if the two levers compound; (4) the outcome eval
-(estimated deck-WR) remains the
+not unboundedly. Next: (1) ✅ rotated holdout (confirmed); (2) ✅ pushed past 15 (peaks ~19); (3) ✅
+`deck_value` target × 19 sets — **no compounding; corpus breadth subsumes the deck_value target**
+([game-data-value-model.md](game-data-value-model.md)); (4) the outcome eval (estimated deck-WR) remains the
 honest adjudicator. Recipe note: train the deployable on **as many diverse sets as available**, not 7.
