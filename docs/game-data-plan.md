@@ -68,9 +68,18 @@ Oko/OTJ, Gruff Triplets/WOE, Elesh Norn/MOM, …), Sp(β,IWD) mean **0.625** (al
 in every set, DSK wasn't special), split-half stability ρ mean **0.644**, reprint consistency ρ=0.86.
 Full writeup: [`results/game-data-value-model.md`](results/game-data-value-model.md#step-1--the-full-per-set-value-field-done-2026-06-24).
 
-**Step 2 — use it (≈1–2 days).** Plug the adjusted value into the composite-WR target and re-run the
-best config (good players + composite). Evaluate on **estimated deck-WR** *and* WR-agreement-vs-adjusted.
-Headline: does the de-confounded target push past the 0.29–0.31 GIH-WR ceiling?
+**Step 2 — use it. ✅ DONE (2026-06-24, 4 seeds).** Plugged `deck_value` into the composite-WR target,
+re-trained the best config (good players + composite, 7-set big net), evaluated vs GIH and vs
+deck_value. **Result: `deck_value` is a better target** (top-1 +0.009, WR-agree-vs-deck_value +0.023
+[4/4 seeds]) **but the single-seed GIH-ceiling-break did NOT survive multi-seed** (GIH-agree +0.007,
+3/4, within the ±0.005–0.01 noise band — below the bar). Headline question ("does it push past the
+0.29–0.31 GIH ceiling?") → **not confirmed**. Code `scripts/pod_game_value_target.py`; full writeup
+[`results/game-data-value-model.md`](results/game-data-value-model.md#step-2--the-de-confounded-target-re-trained-4-seeds-2026-06-24).
+
+**Step 3 (the decisive test, still owed) — outcome eval.** Score the drafted *pool* by the game_data
+model's estimated deck win rate (not agreement with any card rating) to dissolve the train-toward-it
+circularity, and rotate beyond the DSK holdout. Until then `deck_value` is a ship-worthy target, not a
+proven ceiling-break.
 
 ## Prereq (cheap, do first): multi-seed confirmation — ✅ DONE (2026-06-24)
 

@@ -131,10 +131,11 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
 
 ## Detailed docs
 
-- [game-data-value-model.md](game-data-value-model.md) — **game_data value model (Steps 0–1)**:
-  per-game outcome regression β_c. Step 0 go/no-go = **PROCEED** (Sp(β,IWD)=0.60, distinct from IWD);
-  **Step 1 DONE** — `deck_value` built for all 8 sets, face-plausible + stable (split-half ρ 0.64),
-  pushed to HF as a drop-in field. Next: Step 2 (re-train with the de-confounded target).
+- [game-data-value-model.md](game-data-value-model.md) — **game_data value model (Steps 0–2)**:
+  per-game outcome regression β_c → `deck_value`. Step 0 = **PROCEED**; Step 1 = built for all 8 sets
+  (face-plausible, split-half ρ 0.64, on HF); **Step 2 (4-seed)** = `deck_value` is a **better target**
+  (top-1 +0.009, value-agree +0.023 4/4) but the single-seed **GIH-ceiling-break did NOT hold up**
+  (+0.007, 3/4, within noise). Decisive test still owed: outcome eval (estimated deck-WR).
 - [distillation.md](distillation.md) — soft-label KD: ensemble / WR-softmax / leaky-feature (DD-004).
 - [good-players.md](good-players.md) — skill-filtered training + the volume-matched control.
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the

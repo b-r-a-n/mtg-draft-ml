@@ -151,9 +151,50 @@ the 8 cards appearing well-sampled in ≥2 sets get a consistent `deck_value` ac
   `deck_value` already composites fine (verified).
 - **Sample, not full.** 150k games/set; WOE's lower stability suggests the noisier sets could use more.
 
-## Next → Step 2 (needs a GPU pod)
+---
 
-Plug `deck_value` into the composite-WR target (good players + composite, 7-set big net — the
-seed-confirmed best config), re-run, and read **WR-agreement-vs-deck_value** *and* the estimated
-deck-WR eval. The bar from the multi-seed prereq: a real lift must clear **~0.01** (≈2σ) over the
-0.2988 ± 0.0052 ceiling to count.
+# Step 2 — the de-confounded target, re-trained (4 seeds, 2026-06-24)
+
+Plugged `deck_value` into the composite-WR teacher target and re-trained the seed-confirmed best
+config (good players + composite, 7-set big net, LOSO→DSK) via `scripts/pod_game_value_target.py`,
+evaluating picks two ways on the holdout: WR-agreement vs **GIH-WR** (the old confounded metric) and
+vs **deck_value** (the de-confounded "estimated deck-WR"). Three teacher targets, **4 seeds each**.
+
+| teacher target | top-1 | WR-agree:GIH | WR-agree:deck_value |
+|---|---|---|---|
+| `gih` (GIH+IWD+ALSA — prior best) | 0.532 | 0.2966 ± 0.0088 | 0.3044 ± 0.0056 |
+| `+value` (… + deck_value) | 0.533 | 0.3034 ± 0.0112 | 0.3162 ± 0.0056 |
+| **`value` (deck_value only)** | **0.542** | 0.3042 ± 0.0123 | **0.3271 ± 0.0094** |
+| *human* | — | 0.2981 | 0.2879 |
+
+**Δ vs the `gih` target (per-seed sign-consistency):**
+
+| metric | `+value` | `value` |
+|---|---|---|
+| WR-agree:deck_value | **+0.012 (4/4)** | **+0.023 (4/4)** |
+| WR-agree:GIH | +0.007 (3/4) | +0.008 (3/4) |
+| top-1 | +0.001 | **+0.009** |
+
+## Verdict: a better target, but NOT a confirmed GIH-ceiling break
+
+- **`deck_value` is a genuinely better teacher.** Training toward it robustly raises agreement with
+  the de-confounded value signal (**4/4 seeds, +0.023** for value-only) *and* lifts **top-1 by +0.009**
+  — the accuracy gain is non-circular (the model also predicts human picks better), so this isn't just
+  trading accuracy for win-rate. Worth adopting as a target.
+- **The "breaks the 0.29–0.31 GIH ceiling" claim does NOT survive multi-seed.** A single seed showed
+  GIH-agree +0.0145 (→ 0.315); across 4 seeds it regressed to **+0.007, 3/4 seeds, ±0.011** — within
+  the ±0.005–0.01 noise band, below the pre-registered ~0.01 bar. The single-seed run over-stated it
+  (the exact failure mode the [multi-seed prereq](good-players.md) exists to catch).
+- **The circularity is unresolved.** WR-agree:deck_value rewards training-toward-`deck_value` almost by
+  construction, and GIH (the confounded metric) can't adjudicate whether `deck_value` is *better*.
+
+## What's still owed (the decisive test)
+
+An **outcome eval**: score the model's drafted *pool* by the game_data model's estimated deck win
+rate, not agreement with any card rating. That dissolves the circularity and is the honest
+adjudicator of "do these picks actually win more." Plus rotate beyond DSK (Phase-4 flagged it as an
+easy holdout). Until then: `deck_value` is a better, ship-worthy target (top-1 ↑, value-agree ↑
+robustly), but it has **not** been shown to beat the confounded GIH ceiling.
+
+A deployable big-net `deck_value` model is exported for the in-browser draft-pod tool — see
+[`webapp/`](../../webapp/README.md).
