@@ -1,0 +1,23 @@
+{
+  "set": "MH3",
+  "n_cards": 326,
+  "n_real_packs": 600,
+  "onnx": "model/MH3.onnx",
+  "quality_field": "deck_value",
+  "teacher": "value",
+  "train_sets": [
+    "BLB",
+    "OTJ",
+    "WOE",
+    "MKM",
+    "LCI",
+    "MOM",
+    "DSK"
+  ],
+  "target_in_train": false,
+  "max_pool": 45,
+  "max_pack": 15,
+  "emb_dim": 256,
+  "enc_hidden": 512,
+  "enc_layers": 3
+}
