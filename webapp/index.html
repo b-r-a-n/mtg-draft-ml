@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MTG Draft Pod — model overlay</title>
+<!-- onnxruntime-web (WASM) from CDN: the draft model runs entirely in-browser, no server. -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header>
+  <h1>Draft Pod <span class="sub">— 8-seat pod, you draft seat 1, the model overlays every pick &amp; auto-drafts the other 7 seats</span></h1>
+  <div class="controls">
+    <label>Set <select id="setSel"></select></label>
+    <label>Your overlay aggressiveness
+      <input type="range" id="humanAgg" min="0" max="8" step="0.5" value="0">
+      <span id="humanAggVal" class="mono">0</span>
+    </label>
+    <label>Bot aggressiveness spread
+      <input type="range" id="botAgg" min="0" max="8" step="0.5" value="3">
+      <span id="botAggVal" class="mono">3</span>
+    </label>
+    <button id="newDraft">New draft</button>
+    <span id="status" class="status"></span>
+  </div>
+</header>
+
+<main>
+  <section id="packArea">
+    <div class="packhead">
+      <h2 id="packTitle">—</h2>
+      <div id="signals" class="signals"></div>
+    </div>
+    <div id="pack" class="grid"></div>
+  </section>
+
+  <aside id="side">
+    <div class="panel">
+      <h3>Your pool <span id="poolCount" class="mono">0</span></h3>
+      <div id="poolColors" class="colorbar"></div>
+      <div id="pool" class="poollist"></div>
+    </div>
+    <div class="panel">
+      <h3>Table</h3>
+      <div id="seats" class="seats"></div>
+    </div>
+    <div class="panel" id="summaryPanel" hidden>
+      <h3>Draft complete</h3>
+      <div id="summary"></div>
+    </div>
+  </aside>
+</main>
+
+<div id="cardtip" class="cardtip" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

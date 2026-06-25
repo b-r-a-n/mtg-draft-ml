@@ -1,0 +1,42 @@
+# Deploy the static draft-pod webapp (webapp/) to GitHub Pages.
+#
+# The app is fully static — the draft model runs in-browser via onnxruntime-web (WASM) and card
+# images come from Scryfall's CDN — so we just publish the webapp/ folder as the Pages artifact.
+# The model + card data under webapp/model and webapp/data must be committed (generate them with
+# `uv run python scripts/export_webapp.py --quantize ...`; quantizing keeps the model ~9 MB).
+#
+# Enable once in repo Settings → Pages → Build and deployment → Source: "GitHub Actions".
+name: Deploy webapp to Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "webapp/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One concurrent deploy; let an in-progress run finish rather than cancel a live deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: webapp
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,6 @@
+# model/ and data/ ARE committed — they're the published Pages site content. Generate them with
+# `scripts/export_webapp.py --quantize` (quantizing keeps the model ~9 MB; commit that, not float32).
+# The repo-root .gitignore ignores *.onnx globally (model artifacts); re-include the webapp model
+# here, but never the intermediate float32 the quantizer leaves if interrupted.
+!*.onnx
+*.f32.onnx

@@ -17,6 +17,7 @@ dependencies = [
 embeddings = ["sentence-transformers"]  # frozen oracle-text encoder (Phase 1)
 hub = ["huggingface_hub"]               # push/pull dataset + checkpoints (DD-007)
 distill = ["anthropic", "pydantic"]     # LLM card-quality teacher for cold-start (DD-004)
+web = ["onnx", "onnxruntime"]           # export the draft model to ONNX for the static WASM webapp
 dev = ["pytest", "ruff", "ipykernel"]
 
 [build-system]
