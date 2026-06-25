@@ -4,6 +4,38 @@ Local-first: Phases 0–2 run on the M1 dev machine; the multi-set generalizatio
 (Phase 3+) is the step intended for a rented cloud GPU. Each phase is shippable and comparable
 to the last via the eval harness stood up in Phase 0.
 
+## Status (2026-06-25) — what's settled, and how it reshapes the rest
+
+Phases 0–3 shipped and the **game_data value model (Phase 4)** is now fully characterized
+(`docs/results/`). The headline updates change what's worth doing next:
+
+- **Corpus breadth is the real lever — and it broke the ceiling.** WR-agreement plateaued at 0.29–0.31
+  not because of the model but because the corpus was capped at ~7 sets. The best recipe on **~19
+  *relevant* draft sets** lifts WR-agreement to **0.326** (vs ~0.30 at 7), **confirmed across 4 rotated
+  holdouts**, beating average-human (0.298). Relevance matters — padding with remaster/Masters sets
+  *hurts* (peaks ~19, declines at 22). → **train the deployable on as many relevant sets as available,
+  not 4–7.** ([wr-scaling.md](results/wr-scaling.md))
+- **`deck_value` (the de-confounded game_data signal) is real but not the lever.** A genuinely
+  different, less-confounded card value (Sp(β,IWD)≈0.6, face-plausible), and a slightly better *target*
+  at small corpus — but at 19 sets it's **subsumed by corpus breadth** (no compounding). Keep it as the
+  webapp aggressiveness dial + a de-confounded eval, **not** as a training target.
+  ([game-data-value-model.md](results/game-data-value-model.md))
+- **The model drafts outcome-better decks than humans** (non-circular), and the edge survives a
+  realistic 2-color + curve deck-build (+0.029, 74% of seats). ([outcome-eval.md](results/outcome-eval.md))
+- **Hard ceiling on "beyond imitation": deck win rate is ≈ linear in card composition.** No
+  curve / castability / synergy interaction is recoverable as outcome-predictive structure (gradient
+  boosting ≈ linear; a targeted synergy test adds nothing held-out) — single-game outcomes are
+  noise-dominated (whole-deck AUC ≈ 0.61) and built-deck data is range-restricted. **Per-card value is
+  near the achievable ceiling.** Curve is a deck-*build* decision, not a pick decision (the model AND
+  good-player picks are both curve-blind), so **"pick for value, build for curve" is correct by
+  design**, and a smarter pool-conditioned pick objective has ~no extra signal to learn.
+- **Shipped:** a static in-browser **draft-pod webapp** (WASM) running the deployed model on GitHub
+  Pages ([webapp/](../webapp/README.md)).
+
+⇒ The productive remaining levers are **corpus breadth / data curation** and the **product surface
+(webapp + aggressiveness dial)** — *not* a smarter per-pick objective or a value/lookahead RL agent
+(Phase 4's stretch goals are now bounded out — see below).
+
 ## Phase 0 — Baseline + data pipeline
 **Goal:** reproduce a known result and stand up the data join + eval harness as a yardstick.
 - 17lands `draft_data` ingestion (streaming) → compact integer-index Parquet.
@@ -40,17 +72,32 @@ to the last via the eval harness stood up in Phase 0.
 - Metrics: WR-agreement, estimated deck-WR; verify the bot deviates from crowd consensus toward
   higher-WR cards without losing sanity/legality.
 
-## Phase 4 (stretch) — Beyond imitation
+## Phase 4 — Beyond imitation *(DONE / characterized → bounded out)*
 **Goal:** picks that exceed human demonstrators, if a reliable value signal exists.
-**Now scoped:** [game-data-plan.md](game-data-plan.md) — a regression card-value model over 17lands
-`game_data` match outcomes (de-confounds GIH-WR), staged with a go/no-go gate. This is the remaining
-lever with headroom: every WR-agreement result plateaus at 0.29–0.31, capped by the confounded
-GIH-WR proxy itself (see `docs/results/good-players.md`).
-- Deck-strength value model over finished pools.
-- Advantage-weighted offline RL first; only then policy/value + lookahead (JueWuDraft-style),
-  kept as a separate model from the human-pick predictor.
-- *Search distillation:* distill the slow lookahead policy into the fast reactive network.
-- Gated on a usable simulator or rich enough outcome data; treat as experimental.
+**Outcome:** built and fully characterized via [game-data-plan.md](game-data-plan.md) — the regression
+card-value model over 17lands `game_data` (`deck_value`), the WR-agreement scaling study, the outcome
+eval, and the nonlinearity/synergy bound. Conclusions (see Status above + `docs/results/`):
+- ✅ **`deck_value` works as a less-confounded signal** but is **subsumed by corpus breadth** as a
+  training target (Steps 0–2). The ceiling was broken by **data breadth, not de-confounding** — so the
+  old framing ("plateau capped by the confounded GIH-WR proxy") was wrong; the cap was corpus size.
+- ✅ **The model already exceeds human demonstrators** on outcome-scored decks (non-circular,
+  curve-aware build) — so "beyond imitation" is *achieved* on the metric we can measure.
+- ⛔ **The value-RL / lookahead ambitions are bounded out.** Deck win rate is **≈ linear in card
+  composition** (no curve/castability/synergy interaction is outcome-predictive), so a deck-strength
+  *value* model over pools, advantage-weighted offline RL, and JueWuDraft-style policy/value + lookahead
+  have **~no extra outcome signal to learn** beyond per-card value. Not worth building **on this data**.
+
+**What would actually unlock the pool-dependent dynamic** (curve/castability/synergy) — i.e. the signal
+the current `won`-over-composition data lacks:
+- **Deckbuild signal (cheapest, already in `game_data`):** `deck_<card>` vs `sideboard_<card>` encodes
+  what good players *cut* from their pool — the build-time curve/castability judgment, directly. Learn
+  "given this pool, what's played vs sided" instead of trying to read curve off noisy `won`.
+- **A game simulator / self-play (principled, expensive — the long-standing gate):** removes the
+  range restriction (built decks are all castable/sane) by playing out *arbitrary* decks, incl. bad
+  curves, so the interaction becomes observable. This is the only path to a true value/lookahead agent.
+- **Lower-noise in-game proxies:** predict tempo/castability outcomes (mulligans, `num_turns`,
+  drawn-but-stranded from the per-card `drawn_/opening_hand_` columns) instead of end-of-game `won` —
+  higher signal-per-game for the specific dynamic.
 
 ## Phase 5 (plan) — Sequence modeling + capacity spectrum
 **Goal:** model the draft as a sequence (history of packs seen / cards passed) to capture
