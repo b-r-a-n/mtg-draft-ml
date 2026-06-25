@@ -57,8 +57,12 @@ def spec(s, merged_dir):
         "ratings_orig": f"{D}/ratings/{s}.PremierDraft.ratings.json",
         "gamevalue": f"{D}/gamevalue/{s}.PremierDraft.gamevalue.json",
     }
-    base["ratings"] = merged_ratings_with_value(
-        base["ratings_orig"], base["gamevalue"], f"{merged_dir}/{s}.merged.json")
+    # some older sets (e.g. MID) have no game_data deck_value — fall back to plain ratings (their
+    # cards just contribute no deck_value to the composite, fine for a 4-field blend).
+    gv = pathlib.Path(base["gamevalue"])
+    base["ratings"] = (merged_ratings_with_value(base["ratings_orig"], base["gamevalue"],
+                                                 f"{merged_dir}/{s}.merged.json")
+                       if gv.exists() else base["ratings_orig"])
     return base
 
 
