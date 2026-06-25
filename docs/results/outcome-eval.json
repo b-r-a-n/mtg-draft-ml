@@ -6,29 +6,29 @@
   "teacher": "gih",
   "in_distribution": true,
   "mean": {
-    "human": 0.6392969720165281,
-    "model": 0.7025989236000086,
-    "gih_greedy": 0.7384035591757103,
-    "deckvalue_greedy": 0.7733808707247024,
-    "random": 0.530875000317013
+    "human": 0.5501452229688347,
+    "model": 0.5786375577078232,
+    "gih_greedy": 0.5871152121813985,
+    "deckvalue_greedy": 0.6223587539030566,
+    "random": 0.4787297533324411
   },
   "std": {
-    "human": 0.04785923719393547,
-    "model": 0.04349572029205959,
-    "gih_greedy": 0.03935658480136721,
-    "deckvalue_greedy": 0.03503690227907324,
-    "random": 0.038665280568598887
+    "human": 0.045341646750553626,
+    "model": 0.037311105980904286,
+    "gih_greedy": 0.03442268745987085,
+    "deckvalue_greedy": 0.030380319423987057,
+    "random": 0.025706549788846365
   },
   "beats_human_frac": {
-    "model": 0.95125,
-    "gih_greedy": 0.99125,
-    "deckvalue_greedy": 0.99875,
-    "random": 0.02875
+    "model": 0.745,
+    "gih_greedy": 0.81375,
+    "deckvalue_greedy": 0.97125,
+    "random": 0.075
   },
   "delta_vs_human": {
-    "model": 0.06330195158348037,
-    "gih_greedy": 0.0991065871591822,
-    "deckvalue_greedy": 0.13408389870817414,
-    "random": -0.1084219716995152
+    "model": 0.028492334738988365,
+    "gih_greedy": 0.03696998921256373,
+    "deckvalue_greedy": 0.07221353093422182,
+    "random": -0.07141546963639367
   }
 }

@@ -2,12 +2,35 @@
 import numpy as np
 
 from mtg_draft_ml.eval.outcome import (
+    build_best_deck,
     estimated_deck_wr,
     greedy_pick,
     human_pick,
     replay,
     run_eval,
 )
+
+
+def test_build_best_deck_picks_best_color_pair_on_color():
+    # cards 0-2 are WU (high beta), 3-4 are BR (low beta), 5 is an off-color G card
+    beta = np.array([1.0, 0.9, 0.8, 0.2, 0.1, 0.95])
+    ci = ["W", "U", "WU", "B", "R", "G"]
+    cmc = np.array([2, 3, 4, 2, 3, 2])
+    types = ["creature"] * 6
+    deck = build_best_deck(list(range(6)), beta, ci, cmc, types, n_spells=3)
+    # best 2-color pair is WU (cards 0,1,2); the strong off-color G card (5) is NOT playable in WU
+    assert set(deck) == {0, 1, 2}
+
+
+def test_build_best_deck_respects_curve_buckets():
+    # six 2-drops (high beta) but the curve only wants 6 twos — and we ask for 3 spells, all 2-drops fit
+    beta = np.array([0.5, 0.4, 0.3, 0.2, 0.1])
+    ci = ["W"] * 5
+    cmc = np.array([2, 2, 2, 5, 5])  # three 2s, two 5s
+    types = ["creature"] * 5
+    deck = build_best_deck(list(range(5)), beta, ci, cmc, types, n_spells=4)
+    # curve wants up to 6 twos and 3 fives; all 5 cards on-color -> takes best 4 by beta
+    assert len(deck) == 4 and 4 not in deck  # the worst card (idx4, beta .1) is cut
 
 
 def test_estimated_deck_wr_takes_top_spells():

@@ -49,6 +49,8 @@ def main(argv=None):
     ap.add_argument("--hf-dir", default="data/hf")
     ap.add_argument("--webapp-dir", default="webapp")
     ap.add_argument("--game-npz", default=None)
+    ap.add_argument("--unconstrained", action="store_true",
+                    help="score by naive global top-N beta (no 2-color/curve deck build)")
     ap.add_argument("--out", default="docs/results/outcome-eval.json")
     a = ap.parse_args(argv)
     import onnxruntime as ort
@@ -67,9 +69,15 @@ def main(argv=None):
     intercept = fit["intercept"]
     print(f"deck-value fit: {len(beta)} cards, train_acc={fit['train_acc']:.3f}, intercept={intercept:+.3f}")
 
-    # 2. the deployed model + the GIH rating
+    # 2. the deployed model + the GIH rating + per-card color/cmc/type (for the constrained build)
     sess = ort.InferenceSession(f"{a.webapp_dir}/model/{a.set_code}.onnx")
     gih = align_winrates(manifest, ratings, field="ever_drawn_win_rate")
+    cmeta = json.load(open(f"{a.webapp_dir}/data/{a.set_code}.cards.json"))["cards"]
+    n = len(beta)
+    ci = [""] * n; cmc = np.zeros(n); types = ["spell"] * n
+    for c in cmeta:
+        ci[c["i"]] = c.get("ci", "C"); cmc[c["i"]] = c.get("cmc", 0) or 0; types[c["i"]] = c.get("t", "spell")
+    constrain = None if a.unconstrained else (ci, cmc, types)
     drafts = load_drafts(parquet, limit=a.n_drafts)
     print(f"replaying {len(drafts)} drafts on {a.set_code} (model trained on {len(meta['train_sets'])} "
           f"sets, teacher={meta['teacher']}, in-distribution={meta['target_in_train']})")
@@ -81,10 +89,13 @@ def main(argv=None):
         "deckvalue_greedy": greedy_pick(beta),
         "random": random_pick(np.random.default_rng(0)),
     }
-    res = run_eval(drafts, policies, beta, intercept=0.0, n_spells=a.n_spells)
+    cca = constrain if constrain else (None, None, None)
+    res = run_eval(drafts, policies, beta, intercept=0.0, n_spells=a.n_spells,
+                   ci=cca[0], cmc=cca[1], types=cca[2])
 
-    # report: deck-value logit (sum top-N beta) is the honest scale; sigma is a monotone "win-ish" view
-    print(f"\n=== estimated deck-WR ({a.set_code}, best-{a.n_spells} spells by deck_value, "
+    # report: deck-value logit (sum of played betas); sigma is a monotone "win-ish" view
+    build = "naive top-N" if a.unconstrained else "best 2-color + curve deck"
+    print(f"\n=== estimated deck-WR ({a.set_code}, {build}, {a.n_spells} spells, "
           f"{res['n_drafts']} drafts) ===")
     print(f"  {'policy':<18}{'est deck-WR':>12}{'Δ vs human':>12}{'beats human':>14}")
     order = ["deckvalue_greedy", "model", "gih_greedy", "human", "random"]

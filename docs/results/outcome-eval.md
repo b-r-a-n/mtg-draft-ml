@@ -13,36 +13,40 @@ scorer. (`scripts/run_outcome_eval.py`, 800 held-out DSK drafts, the deployed 20
 
 ## Result — the model drafts outcome-better decks than humans
 
-| policy | est. deck-WR | Δ vs human | beats human |
-|---|---|---|---|
-| `deckvalue_greedy` (oracle: take highest-β each pack) | 0.773 | +0.134 | 100% |
-| `gih_greedy` (take highest GIH-WR each pack) | 0.738 | +0.099 | 99% |
-| **model** (deployed, GIH-trained) | **0.703** | **+0.063** | **95%** |
-| *human* (recorded picks) | 0.639 | — | — |
-| `random` | 0.531 | −0.108 | 3% |
+Each pool is scored by building its **best legal 2-color, curve-respecting deck** (`build_best_deck`:
+best of the 10 color pairs, filling a CMC-bucket curve, using the `ci`/`cmc`/`t` fields) — so a 5-color
+bomb pile collapses to one pair's depth and a pool with no early drops can't fill the low buckets. The
+naive global top-23 (no color/curve) is shown for contrast.
 
-**The model's drafted decks beat the human's by +0.063 estimated deck-WR, in 95% of drafts — and
-non-circularly** (GIH-trained, deck_value-scored). This is the signal the WR-agreement work couldn't
-give: the pick-quality gains translate into decks the *outcome* model rates higher than the people who
-actually played them. The model captures ~47% of the human→oracle gap (0.639 → 0.703 → 0.773).
+| policy | **deck-WR (2-color+curve)** | Δ vs human | beats human | (naive top-23) |
+|---|---|---|---|---|
+| `deckvalue_greedy` (oracle: highest-β each pack) | 0.622 | +0.072 | 97% | 0.773 |
+| `gih_greedy` (highest GIH-WR each pack) | 0.587 | +0.037 | 81% | 0.738 |
+| **model** (deployed, GIH-trained) | **0.579** | **+0.029** | **74%** | 0.703 |
+| *human* (recorded picks) | 0.550 | — | — | 0.639 |
+| `random` | 0.479 | −0.071 | 8% | 0.531 |
+
+**The model's decks beat the humans' by +0.029 estimated deck-WR, in 74% of drafts — non-circularly**
+(GIH-trained, deck_value-scored). The edge is real but **modest**, and it **survives the realistic
+metric**: under the 2-color+curve build, the color-undisciplined greedy policies lose most of their
+apparent advantage — `gih_greedy`'s lead over the model collapses from +0.035 (naive) to **+0.009**,
+because its rainbow bomb-pile can't form a legal deck. So forcing a playable deck punishes
+"hoard the bombs" hardest, exactly as it should.
 
 ## Honest caveats (what this does and does NOT show)
 
-- **The metric is a card-power sum, not a deck simulator.** "est. deck-WR" = σ(Σ top-23 β) rewards raw
-  card value and ignores curve, mana, synergy, and playability — which is why the **greedy rating
-  policies beat the model** (`gih_greedy` 0.738 > model 0.703). A real win-rate eval would need
-  mana/curve/sequencing. So this validates *"the model picks winning-er cards than humans"* (a
-  card-power claim), not *"the model builds optimal decks."* The greedy policies "win" the metric by
-  maximizing raw value at the cost of a real deck's balance.
-- **On-rails packs.** Policies draft the *recorded* pack sequence, so their own picks don't change what
-  wheels — a standard counterfactual approximation, not a full pod simulation.
+- **It's a deck-strength estimate, not a game simulator.** The score is Σβ over a constrained legal
+  deck — now color/curve-aware, but still no **synergy/sequencing/mana-base** modeling, and the per-card
+  β is itself an observational outcome estimate. So this is "the model builds higher-β legal decks than
+  humans," not a played-out win rate.
+- **On-rails packs.** Policies draft the *recorded* pack sequence — their own picks don't change what
+  wheels (a standard counterfactual approximation, not a full pod simulation).
 - **In-distribution.** The deployed model trained on DSK (among 20 sets); this is a deck-quality
   comparison (model vs human on the same packs), not a generalization test.
 
 ## Verdict
 
-The WR-agreement gains **do** translate to outcome-better *picks* than humans (decisive, non-circular:
-+0.063, 95% of drafts), closing the loop the project kept deferring. The remaining honest gap is the
-**deck-strength metric itself** — a card-power proxy, not a curve/mana/win simulator — so the headline
-is "the model picks cards that build higher-outcome-value decks than humans," with a real deck-WR
-simulator as the next rung if this becomes load-bearing.
+The WR-agreement gains **do** translate to outcome-better *decks* than humans — and the result holds up
+under a realistic 2-color + curve deck-build (+0.029, 74% of seats; non-circular), which also strips the
+greedy "bomb-hoard" policies of the edge the naive metric handed them. The remaining rungs are
+**synergy/mana-base** modeling and a played-out win simulator, if this becomes load-bearing.
