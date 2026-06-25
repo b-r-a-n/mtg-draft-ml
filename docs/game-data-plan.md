@@ -76,10 +76,14 @@ deck_value. **Result: `deck_value` is a better target** (top-1 +0.009, WR-agree-
 0.29–0.31 GIH ceiling?") → **not confirmed**. Code `scripts/pod_game_value_target.py`; full writeup
 [`results/game-data-value-model.md`](results/game-data-value-model.md#step-2--the-de-confounded-target-re-trained-4-seeds-2026-06-24).
 
-**Step 3 (the decisive test, still owed) — outcome eval.** Score the drafted *pool* by the game_data
-model's estimated deck win rate (not agreement with any card rating) to dissolve the train-toward-it
-circularity, and rotate beyond the DSK holdout. Until then `deck_value` is a ship-worthy target, not a
-proven ceiling-break.
+**Step 3 — outcome eval. ✅ DONE (2026-06-25).** Replay held-out drafts, score each policy's drafted
+pool by the game_data deck-value model (`scripts/run_outcome_eval.py`, `eval/outcome.py`). **The
+deployed (GIH-trained) model's decks beat the humans' by +0.063 est. deck-WR in 95% of drafts — and
+non-circularly** (GIH-trained, deck_value-scored). Full writeup
+[`results/outcome-eval.md`](results/outcome-eval.md). **Honest gap:** the metric is σ(Σ top-23 β) — a
+card-power sum that ignores **mana curve / color distribution / synergy**, so greedy rating policies
+beat it; the next rung is a constrained best-deck builder (pick the best 2-color pair, enforce a curve
++ creature count from the `ci`/`cmc`/`t` fields in cards.json) so the score reflects a playable deck.
 
 ## Prereq (cheap, do first): multi-seed confirmation — ✅ DONE (2026-06-24)
 
