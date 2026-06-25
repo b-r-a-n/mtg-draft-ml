@@ -33,10 +33,10 @@ from mtg_draft_ml.training.train_content import train_loop
 
 D = "data/hf"
 SIZE = "60000"
-HOLDOUT = "DSK"
-# fixed diverse ordering of the 15 train sets (DSK held out). prefixes give the nested corpus.
-ORDER = ["BLB", "OTJ", "WOE", "MKM", "LCI", "MH3", "MOM",
-         "FDN", "DFT", "TDM", "FIN", "EOE", "ONE", "BRO", "DMU"]
+# fixed diverse priority over all 16 sets; for a given holdout, ORDER = this minus the holdout, and
+# corpus size k = the first k. (holdout=DSK reproduces the original curve's [BLB..DMU] ordering.)
+PRIORITY = ["BLB", "OTJ", "WOE", "MKM", "LCI", "MH3", "MOM",
+            "FDN", "DFT", "TDM", "FIN", "EOE", "ONE", "BRO", "DMU", "DSK"]
 GIH = "ever_drawn_win_rate"
 # the established composite-WR target (good-players.md); hold it FIXED to isolate the data-scaling effect.
 TEACHER_FIELDS = ["ever_drawn_win_rate", "drawn_improvement_win_rate", "avg_pick"]
@@ -59,6 +59,7 @@ def spec(s, merged_dir):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--holdout", default="DSK")
     ap.add_argument("--sizes", default="4,7,11,15")
     ap.add_argument("--seeds", default="0,1,2")
     ap.add_argument("--min-winrate", type=float, default=0.55)
@@ -68,17 +69,20 @@ def main(argv=None):
     ap.add_argument("--enc-layers", type=int, default=4)
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--device", default="auto")
-    ap.add_argument("--out-json", default="data/wr_scaling_DSK.json")
+    ap.add_argument("--out-json", default=None)
     a = ap.parse_args(argv)
 
     merged_dir = "data/ratings_merged"
     pathlib.Path(merged_dir).mkdir(parents=True, exist_ok=True)
+    holdout = a.holdout
+    order = [s for s in PRIORITY if s != holdout]
+    out_json = a.out_json or f"data/wr_scaling_{holdout}.json"
     sizes = [int(x) for x in a.sizes.split(",")]
     seeds = [int(x) for x in a.seeds.split(",")]
     skill = {"min_winrate": a.min_winrate, "min_games": a.min_games, "ranks": None}
     emb = get_embedder("all-MiniLM-L6-v2")
     dev = pick_device(a.device)
-    hold = spec(HOLDOUT, merged_dir)
+    hold = spec(holdout, merged_dir)
     hmat, _ = build_content_matrix(hold["manifest"], hold["scryfall"], embedder=emb, text=True)
     wr_gih = align_winrates(hold["manifest"], hold["ratings"], field=GIH)
     wr_val = align_winrates(hold["manifest"], hold["ratings"], field="deck_value")
@@ -87,10 +91,11 @@ def main(argv=None):
     common = dict(checkpoint_dir="data/checkpoints", checkpoint_every=0, epochs=a.epochs, lr=1e-3,
                   warmup_frac=0.1, grad_clip=1.0)
 
+    print(f"### HOLDOUT {holdout} · order={order}", flush=True)
     curve = []
     for size in sizes:
-        train_sets = ORDER[:size]
-        print(f"\n############ CORPUS SIZE {size}: {train_sets} ############", flush=True)
+        train_sets = order[:size]
+        print(f"\n############ {holdout} · CORPUS SIZE {size}: {train_sets} ############", flush=True)
         train_specs = [spec(s, merged_dir) for s in train_sets]
         gmat, ginfo, key_to_idx, l2gs = build_multiset_content(train_specs, embedder=emb, text=True)
         bases = [(RemappedDataset(DraftPickDataset(s["parquet"]), l2g), s["parquet"])
@@ -122,7 +127,7 @@ def main(argv=None):
     def agg(rows, k):
         vs = [r[k] for r in rows if r[k] is not None]
         return (statistics.mean(vs), statistics.pstdev(vs) if len(vs) > 1 else 0.0)
-    print("\n=== WR-agreement scaling curve (holdout DSK; good players + composite target, big net) ===")
+    print(f"\n=== WR-agreement scaling curve (holdout {holdout}; good players + composite, big net) ===")
     print(f"  {'sets':>5}{'cards':>7}{'top1':>9}{'WR:GIH':>16}{'WR:deck_value':>16}")
     for c in curve:
         t1 = agg(c["seeds"], "top1"); g = agg(c["seeds"], "wr_gih"); v = agg(c["seeds"], "wr_value")
@@ -137,9 +142,9 @@ def main(argv=None):
             d = agg(c["seeds"], "wr_gih")[0] - base7
             print(f"    {c['size']:>2} sets: {d:+.4f}")
 
-    out = pathlib.Path(a.out_json)
+    out = pathlib.Path(out_json)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"holdout": HOLDOUT, "order": ORDER, "teacher_fields": TEACHER_FIELDS,
+    out.write_text(json.dumps({"holdout": holdout, "order": order, "teacher_fields": TEACHER_FIELDS,
                    "net": f"emb{a.emb_dim}h{a.enc_hidden}L{a.enc_layers}", "curve": curve}, indent=2,
                    default=float))
     print(f"\nwrote {out}")
