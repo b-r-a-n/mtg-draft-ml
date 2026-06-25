@@ -37,6 +37,22 @@ the last), holding out **DSK**, **3 seeds** each. Read WR-agreement vs **GIH** (
   GIH-agreement is what improves; `deck_value`-agreement is incidental. (Compounding the deck_value
   *target* with 15 sets is untested — see below.)
 
+## Confirmed across holdouts (not DSK-specific)
+
+DSK is an *easy* holdout (Phase-4), so the 7→15 slope was re-run on three more holdouts (2 seeds each):
+
+| holdout | 7-set WR:GIH | 15-set WR:GIH | **Δ (7→15)** | human |
+|---|---|---|---|---|
+| DSK | 0.3027 | 0.3203 | **+0.018** | 0.298 |
+| OTJ | 0.2974 | 0.3221 | **+0.025** | 0.285 |
+| MOM | 0.2793 | 0.2935 | **+0.014** | — |
+| FDN | 0.2796 | 0.2997 | **+0.020** | 0.292 |
+
+**4/4 holdouts positive, mean +0.019.** The corpus-scaling lift on WR-agreement is **general, not a DSK
+artifact** — and at 15 sets the model meets-or-beats the human WR-agreement on every holdout measured
+(e.g. DSK 0.320 > 0.298, OTJ 0.322 > 0.285, FDN 0.300 > 0.292). (`scripts/pod_wr_scaling.py --holdout
+<SET> --sizes 7,15`.)
+
 ## Why more sets helps the WR axis (hypothesis)
 
 The model is content-based; more diverse sets = broader coverage of card *types* the encoder must
@@ -46,8 +62,7 @@ improve as the encoder's value sense sharpens with corpus breadth.
 
 ## Caveats
 
-- **One holdout (DSK).** Phase-4 flagged DSK as an *easy* holdout (flagship 0.574 was DSK-specific,
-  rotated ~0.54). The break should be confirmed on rotated holdouts before it's bankable.
+- ~~One holdout~~ **Confirmed on 4 holdouts** (DSK/OTJ/MOM/FDN, all +0.014–0.025) — see above.
 - **Diminishing returns past 15 unknown** — the curve is still rising at 15 (our full corpus); whether
   it continues needs more sets (17lands has ~30+; ingest is cheap via `ingest_set.py`).
 - Single target/config; `deck_value`-target × 15-set is the obvious compounding test.
