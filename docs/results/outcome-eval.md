@@ -44,6 +44,44 @@ because its rainbow bomb-pile can't form a legal deck. So forcing a playable dec
 - **In-distribution.** The deployed model trained on DSK (among 20 sets); this is a deck-quality
   comparison (model vs human on the same packs), not a generalization test.
 
+## How much headroom is there beyond per-card value? (≈ none)
+
+The pool-dependent considerations a "smarter" drafter would weigh — mana **curve**, contextual
+**castability** (a WW card is worse in a W-light deck), **synergy** (two-card combos) — are all
+*interactions*: a card's value depends on the rest of the deck. The `deck_value` model is **linear**
+(`σ(Σ β_c·count_c)`), so it can't represent them. Do they actually predict **winning**? (`scripts/probe_deck_outcome.py`,
+DSK game_data, held-out.)
+
+| model | log-loss | AUC |
+|---|---|---|
+| linear (deck_value family) | **0.6682** | **0.6084** |
+| gradient boosting (any card interaction) | 0.6709 | 0.6005 |
+| linear + top-60 **synergy** interactions | 0.6687 (Δ +0.0006) | 0.6068 |
+
+**No interaction is recoverable as outcome-predictive structure.** Gradient boosting — free to use any
+curve×color/castability/synergy interaction — does *not* beat the linear per-card model; and a
+*targeted* synergy test (rank card pairs by where the linear model under-predicts wins, add the top
+60) doesn't improve held-out either, and its "top synergy pairs" are unrecognizable commons (train
+noise that doesn't generalize, not real combos). **Deck win rate is ≈ linear in which cards are in the
+deck.**
+
+Why — three compounding reasons:
+1. **Single-game outcomes are very noisy.** AUC ≈ 0.61 from the *whole deck* — opponent, draws,
+   mulligans, and play skill dominate who wins a given game. Interaction effects are a second-order
+   slice of an already-small signal, below the noise floor even at 150k games.
+2. **Range restriction.** The game_data only contains decks humans actually *built* — castable and
+   curve-sane, because they fixed it at deckbuild. The bad case (uncastable splash, no curve) is
+   censored, so castability/curve can't show up. (Synergy isn't censored — and still shows nothing.)
+3. **Limited synergy is mostly soft** (good cards in a color), already absorbed into per-card β; hard
+   combos are rare and below the support threshold.
+
+**Implication (the bound):** a pool-conditioned objective (marginal deck-WR, curve/synergy-aware) has
+**essentially no extra outcome signal to learn from** beyond per-card value. This isn't "those effects
+don't exist" — it's that they're enforced downstream, absorbed into averages, or below the
+outcome-noise floor, so they're **not learnable from win/loss here.** Per-card-value drafting is close
+to the achievable ceiling for the outcome we can measure. (Caveat: rare bomb-combos below the support
+cut could be missed; this bounds what's *learnable from these outcomes*, not metaphysics.)
+
 ## Verdict
 
 The WR-agreement gains **do** translate to outcome-better *decks* than humans — and the result holds up
