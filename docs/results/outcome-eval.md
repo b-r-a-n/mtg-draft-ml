@@ -50,3 +50,24 @@ The WR-agreement gains **do** translate to outcome-better *decks* than humans �
 under a realistic 2-color + curve deck-build (+0.029, 74% of seats; non-circular), which also strips the
 greedy "bomb-hoard" policies of the edge the naive metric handed them. The remaining rungs are
 **synergy/mana-base** modeling and a played-out win simulator, if this becomes load-bearing.
+
+## Mechanistic probe — is the model itself curve-aware? (no — it's curve-blind)
+
+Does the draft model do *contextual* curve-completion (up-weight cheap cards when its pool is
+top-heavy)? A causal intervention on the deployed ONNX (`scripts/probe_curve.py`) tests it: hold a pack
+fixed (a cheap + an expensive card of the same color, **β-matched** so value isn't the tiebreaker),
+swap only the **pool** between top-heavy and low-curve (both drawn from **mid-β filler** so the pools
+are power-matched and differ only in CMC), and measure the shift toward the cheap card.
+
+| | confounded (top-heavy = bombs) | **β/power-matched** |
+|---|---|---|
+| shift toward cheap when pool top-heavy | −0.169 logit | **−0.024 logit** (−5σ, n=535) |
+| % favoring cheap more when top-heavy | 15% | **39%** (50% = curve-blind) |
+
+Controlling for power shrinks the effect ~7×: most of the apparent "anti-curve" behavior was just
+"top-heavy pool = committed high-power deck." What remains is **near-zero, slightly negative** — i.e.
+the model is **curve-blind**: changing the pool's curve barely moves its pick, and if anything nudges
+*away* from the cheap card. Its pool-conditioning is **color / power / synergy, not mana curve.** That's
+exactly why the outcome metric above had to impose curve *externally* — the model doesn't draft for it
+(humans likely do, and the model still wins on per-card value/color). To get curve-aware drafting the
+model would need an explicit curve-state input or a pick-time curve term, neither of which it has.
