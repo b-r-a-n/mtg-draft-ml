@@ -28,7 +28,8 @@ Phases 0–3 shipped and the **game_data value model (Phase 4)** is now fully ch
   noise-dominated (whole-deck AUC ≈ 0.61) and built-deck data is range-restricted. **Per-card value is
   near the achievable ceiling.** Curve is a deck-*build* decision, not a pick decision (the model AND
   good-player picks are both curve-blind), so **"pick for value, build for curve" is correct by
-  design**, and a smarter pool-conditioned pick objective has ~no extra signal to learn.
+  design**, and a smarter pool-conditioned pick objective has ~no extra signal to learn — **confirmed**:
+  pick-time buildability weighting is flat once made in-distribution ([play-prob-pick-time.md](results/play-prob-pick-time.md)).
 - **Shipped:** a static in-browser **draft-pod webapp** (WASM) running the deployed model on GitHub
   Pages ([webapp/](../webapp/README.md)).
 
