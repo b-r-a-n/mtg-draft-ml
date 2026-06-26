@@ -1,0 +1,12 @@
+training P(played | PARTIAL pool) …
+
+=== outcome eval: P(played|pool) reweighting (DSK, 400 drafts, constrained 2-color+curve deck) ===
+  policy              deck-WR  Δ vs model  Δ vs human  top2-color%
+  human                0.5648     -0.0320           —          78%
+  model                0.5968     +0.0000     +0.0320          75%
+  model+build@0.5      0.5995     +0.0027     +0.0347          78%
+  model+build@1.0      0.5966     -0.0002     +0.0318          74%
+  model+build@2.0      0.5827     -0.0141     +0.0179          66%
+  gih_greedy           0.5996     +0.0028     +0.0347          58%
+
+wrote docs/results/play-policy-partial.json

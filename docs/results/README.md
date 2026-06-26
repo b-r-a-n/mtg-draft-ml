@@ -141,6 +141,12 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
   held-out drafts, score each policy's drafted pool by the game_data deck-value model. **The model's
   decks beat the humans' by +0.063 est. deck-WR in 95% of drafts** (GIH-trained, deck_value-scored).
   Caveat: the metric is a card-power sum (greedy rating policies beat it), not a curve/mana simulator.
+- [play-prob-pick-time.md](play-prob-pick-time.md) — **buildability at PICK time** (resolved: flat).
+  Training `P(played | pool)` on *partial* pools fixes the OOD problem — at λ=0.5 drafted pools get more
+  color-coherent (75%→78%, matching humans), unlike the full-pool run where it fell — but **deck-WR stays
+  flat** (+0.0027, within noise). The drafter is already coherent enough, and `gih_greedy` wins as much
+  with only 58% coherence, so color-coherence isn't the WR bottleneck. **Buildability is a build-time
+  lever, not a pick-time one**; the faithful pick-sequence version is shelved (gate not met).
 - [wr-scaling.md](wr-scaling.md) — **WR-agreement data-scaling curve** (corpus 8→23 sets): on the
   *win-rate* axis the corpus is **NOT saturated** (Phase-4 saturation was top-1-specific). 7→15 sets
   lifts WR-agree:GIH **+0.014–0.025 across 4/4 rotated holdouts** (DSK/OTJ/MOM/FDN); it then **peaks

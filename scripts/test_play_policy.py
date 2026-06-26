@@ -88,10 +88,12 @@ def main(argv=None):
           f"constrained 2-color+curve deck) ===")
     print(f"  {'policy':<18}{'deck-WR':>9}{'Δ vs model':>12}{'Δ vs human':>12}{'top2-color%':>13}")
     base = res["mean"].get("model")
+    top2_color = {}
     for name in policies:
         # color concentration: fraction of the drafted pool in its top-2 colors
         pools = [replay(d, policies[name]) for d in drafts[:120]]
-        conc = np.mean([_top2_frac(p, ci) for p in pools])
+        conc = float(np.mean([_top2_frac(p, ci) for p in pools]))
+        top2_color[name] = conc
         dm = res["mean"][name] - base if base is not None else None
         dh = res.get("delta_vs_human", {}).get(name)
         print(f"  {name:<18}{res['mean'][name]:>9.4f}"
@@ -99,7 +101,8 @@ def main(argv=None):
               f"{(f'{dh:+.4f}' if dh is not None else '—'):>12}{conc*100:>12.0f}%")
 
     pathlib.Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    pathlib.Path(a.out).write_text(json.dumps({"set": a.set_code, "lambdas": lams, **res}, indent=2, default=float))
+    pathlib.Path(a.out).write_text(json.dumps(
+        {"set": a.set_code, "lambdas": lams, **res, "top2_color": top2_color}, indent=2, default=float))
     print(f"\nwrote {a.out}")
 
 
