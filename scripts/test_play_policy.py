@@ -17,7 +17,7 @@ import pathlib
 import numpy as np
 
 from mtg_draft_ml.eval.outcome import greedy_pick, human_pick, load_drafts, replay, run_eval
-from mtg_draft_ml.eval.play_prob import train_play_model
+from mtg_draft_ml.eval.play_prob import train_play_model, train_play_model_partial
 from mtg_draft_ml.eval.winrate import align_winrates
 
 
@@ -38,6 +38,9 @@ def main(argv=None):
     ap.add_argument("--set", dest="set_code", default="DSK")
     ap.add_argument("--n-drafts", type=int, default=600)
     ap.add_argument("--lambdas", default="0,0.5,1,2")
+    ap.add_argument("--partial", action="store_true",
+                    help="train P(played|PARTIAL pool) so it's in-distribution at pick time (the fix "
+                         "for the OOD failure of the full-pool model). See play-prob-pick-time.md.")
     ap.add_argument("--hf-dir", default="data/hf")
     ap.add_argument("--webapp-dir", default="webapp")
     ap.add_argument("--out", default="docs/results/play-policy.json")
@@ -57,8 +60,8 @@ def main(argv=None):
         if c["deck_value"] is not None:
             beta[c["i"]] = c["deck_value"]
 
-    print("training P(played | pool) …")
-    pm = train_play_model(csv, str(man), cards)
+    print(f"training P(played | {'PARTIAL' if a.partial else 'full'} pool) …")
+    pm = (train_play_model_partial if a.partial else train_play_model)(csv, str(man), cards)
     sess = ort.InferenceSession(f"{a.webapp_dir}/model/{a.set_code}.onnx")
     logit_fn = _onnx_logits(sess, meta["max_pool"], meta["max_pack"])
     gih = align_winrates(str(man), f"{hf}/ratings/{a.set_code}.PremierDraft.ratings.json",
