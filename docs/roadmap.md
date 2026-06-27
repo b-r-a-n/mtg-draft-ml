@@ -13,8 +13,11 @@ Phases 0–3 shipped and the **game_data value model (Phase 4)** is now fully ch
   not because of the model but because the corpus was capped at ~7 sets. The best recipe on **~19
   *relevant* draft sets** lifts WR-agreement to **0.326** (vs ~0.30 at 7), **confirmed across 4 rotated
   holdouts**, beating average-human (0.298). Relevance matters — padding with remaster/Masters sets
-  *hurts* (peaks ~19, declines at 22). → **train the deployable on as many relevant sets as available,
-  not 4–7.** ([wr-scaling.md](results/wr-scaling.md))
+  *hurts* (peaks ~19, declines at 22). **Curation pass confirms it's relevance, not count:** at equal
+  count (19), keeping the reprint sets SIR/PIO scores 0.315 vs 0.325 for dropping them; SIR (remaster) +
+  PIO (Masters) are the culprits, STX neutral; curation recovers but doesn't exceed ~0.326 (the
+  corpus-breadth ceiling). → **train the deployable on the ~19 relevant expansion/draft sets; exclude
+  remaster/Masters/reprint sets.** ([wr-scaling.md](results/wr-scaling.md))
 - **`deck_value` (the de-confounded game_data signal) is real but not the lever.** A genuinely
   different, less-confounded card value (Sp(β,IWD)≈0.6, face-plausible), and a slightly better *target*
   at small corpus — but at 19 sets it's **subsumed by corpus breadth** (no compounding). Keep it as the

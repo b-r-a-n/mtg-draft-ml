@@ -1,0 +1,200 @@
+{
+  "holdout": "DSK",
+  "teacher_fields": [
+    "ever_drawn_win_rate",
+    "drawn_improvement_win_rate",
+    "avg_pick"
+  ],
+  "net": "emb512h1024L4",
+  "loo": false,
+  "results": [
+    {
+      "arm": "all22",
+      "n_sets": 22,
+      "train_sets": [
+        "BLB",
+        "OTJ",
+        "WOE",
+        "MKM",
+        "LCI",
+        "MH3",
+        "MOM",
+        "FDN",
+        "DFT",
+        "TDM",
+        "FIN",
+        "EOE",
+        "ONE",
+        "BRO",
+        "DMU",
+        "SNC",
+        "NEO",
+        "MID",
+        "LTR",
+        "STX",
+        "SIR",
+        "PIO"
+      ],
+      "n_global_cards": 6654,
+      "seeds": [
+        {
+          "seed": 0,
+          "top1": 0.53045,
+          "wr_gih": 0.29770764553373247,
+          "human_gih": 0.2981179937701677
+        },
+        {
+          "seed": 1,
+          "top1": 0.52825,
+          "wr_gih": 0.31248018204539946,
+          "human_gih": 0.2981179937701677
+        },
+        {
+          "seed": 2,
+          "top1": 0.5376166666666666,
+          "wr_gih": 0.3111185719881372,
+          "human_gih": 0.2981179937701677
+        }
+      ]
+    },
+    {
+      "arm": "nested19",
+      "n_sets": 19,
+      "train_sets": [
+        "BLB",
+        "OTJ",
+        "WOE",
+        "MKM",
+        "LCI",
+        "MH3",
+        "MOM",
+        "FDN",
+        "DFT",
+        "TDM",
+        "FIN",
+        "EOE",
+        "ONE",
+        "BRO",
+        "DMU",
+        "SNC",
+        "NEO",
+        "MID",
+        "LTR"
+      ],
+      "n_global_cards": 5607,
+      "seeds": [
+        {
+          "seed": 0,
+          "top1": 0.5466333333333333,
+          "wr_gih": 0.32091097308488614,
+          "human_gih": 0.2981179937701677
+        },
+        {
+          "seed": 1,
+          "top1": 0.5426666666666666,
+          "wr_gih": 0.33115102680320074,
+          "human_gih": 0.2981179937701677
+        },
+        {
+          "seed": 2,
+          "top1": 0.5463833333333333,
+          "wr_gih": 0.32324249715554065,
+          "human_gih": 0.2981179937701677
+        }
+      ]
+    },
+    {
+      "arm": "drop_reprint20",
+      "n_sets": 20,
+      "train_sets": [
+        "BLB",
+        "OTJ",
+        "WOE",
+        "MKM",
+        "LCI",
+        "MH3",
+        "MOM",
+        "FDN",
+        "DFT",
+        "TDM",
+        "FIN",
+        "EOE",
+        "ONE",
+        "BRO",
+        "DMU",
+        "SNC",
+        "NEO",
+        "MID",
+        "LTR",
+        "STX"
+      ],
+      "n_global_cards": 5932,
+      "seeds": [
+        {
+          "seed": 0,
+          "top1": 0.5331166666666667,
+          "wr_gih": 0.32348497565888873,
+          "human_gih": 0.2981179937701677
+        },
+        {
+          "seed": 1,
+          "top1": 0.5373666666666667,
+          "wr_gih": 0.31941879767966724,
+          "human_gih": 0.2981179937701677
+        },
+        {
+          "seed": 2,
+          "top1": 0.5375,
+          "wr_gih": 0.32171301736519126,
+          "human_gih": 0.2981179937701677
+        }
+      ]
+    },
+    {
+      "arm": "relevance_ctrl19",
+      "n_sets": 19,
+      "train_sets": [
+        "BLB",
+        "OTJ",
+        "WOE",
+        "MKM",
+        "LCI",
+        "MH3",
+        "MOM",
+        "FDN",
+        "DFT",
+        "ONE",
+        "BRO",
+        "DMU",
+        "SNC",
+        "NEO",
+        "MID",
+        "LTR",
+        "STX",
+        "SIR",
+        "PIO"
+      ],
+      "n_global_cards": 5737,
+      "seeds": [
+        {
+          "seed": 0,
+          "top1": 0.5323666666666667,
+          "wr_gih": 0.3061943931509149,
+          "human_gih": 0.2981179937701677
+        },
+        {
+          "seed": 1,
+          "top1": 0.5326333333333333,
+          "wr_gih": 0.31796392665957884,
+          "human_gih": 0.2981179937701677
+        },
+        {
+          "seed": 2,
+          "top1": 0.5279833333333334,
+          "wr_gih": 0.32119075597336466,
+          "human_gih": 0.2981179937701677
+        }
+      ]
+    }
+  ]
+}

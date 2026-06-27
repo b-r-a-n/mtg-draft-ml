@@ -152,6 +152,10 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
   lifts WR-agree:GIH **+0.014–0.025 across 4/4 rotated holdouts** (DSK/OTJ/MOM/FDN); it then **peaks
   ≈0.326 at ~19 relevant sets and DECLINES at 22** when padded with remaster/Masters sets — corpus
   *relevance* matters, not just count. Cleanest break of the 0.29–0.31 ceiling found, from data alone.
+  **Curation pass (explicit corpora, 3 seeds) confirms relevance, not count:** a 19-set corpus that
+  *keeps* the reprint sets SIR/PIO scores 0.315 vs 0.325 for the one that drops them (equal count); the
+  culprits are SIR (Innistrad remaster) + PIO (Pioneer Masters), STX is neutral. Curation recovers but
+  does not exceed the ~0.326 peak → that's the corpus-breadth ceiling. Recipe: exclude remaster/Masters.
 - [game-data-value-model.md](game-data-value-model.md) — **game_data value model (Steps 0–2)**:
   per-game outcome regression β_c → `deck_value`. Step 0 = **PROCEED**; Step 1 = built for all 8 sets
   (face-plausible, split-half ρ 0.64, on HF); **Step 2 (4-seed)** = `deck_value` is a **better target**

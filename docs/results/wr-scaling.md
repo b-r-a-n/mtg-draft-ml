@@ -73,6 +73,37 @@ environments. Padding the corpus with low-relevance sets actively *hurts* the en
 remaster/Masters/old sets** — quality of the corpus matters, not just quantity. The genuine WR-agreement
 peak is ≈**0.326** at ~19 recent-Standard-ish sets (vs the ~0.30 at 7 and the 0.29–0.31 GIH "ceiling").
 
+## Curation: relevance, not count (resolves "curated-19 vs 22")
+
+The nested-prefix curve pinned STX/SIR/PIO **last**, so "19 vs 22" conflated *which* sets with *how
+many*. To separate them, trained the same recipe on **explicit** corpora (holdout DSK, 3 seeds,
+`scripts/pod_corpus_curation.py`). Set composition (scryfall) flags **SIR** (2016 Innistrad *remaster* —
+cards resolve to soi/emn/inr) and **PIO** (Pioneer *Masters*, 2012–19 reprints) as genuinely
+off-distribution; **STX** is a real 2021 Standard expansion caught in the same ingest batch.
+
+| arm | sets | WR-agree:GIH | vs all22 |
+|---|---|---|---|
+| **nested19** (−STX,SIR,PIO) | 19 | **0.3251 ± 0.0044** | +0.018 |
+| drop_reprint20 (keep STX) | 20 | 0.3215 ± 0.0017 | +0.014 |
+| relevance_ctrl19 (keep SIR,PIO; −FIN,EOE,TDM) | 19 | 0.3151 ± 0.0064 | +0.008 |
+| all22 (full) | 22 | 0.3071 ± 0.0067 | — |
+| *human* | | 0.2981 | |
+
+- **It's relevance, not count.** The control `relevance_ctrl19` is a *19-set* corpus that **keeps**
+  SIR/PIO — and scores **−0.010 below** `nested19` at *identical count* (0.315 vs 0.325). Hitting "19"
+  is not the lever; *which* sets is.
+- **SIR + PIO are the culprits.** Dropping just those two (`drop_reprint20`, 0.3215) recovers nearly
+  all the gain; keeping them (`all22`, 0.307) is worst. The off-distribution remaster/Masters
+  environments dilute the encoder's value sense.
+- **STX is ~neutral** (keep 0.3215 vs drop 0.3251 — within ~1σ): a real but older Standard set neither
+  clearly helps nor hurts. No free set to reclaim, but no harm either.
+- **Curation recovers and *explains* the ~0.326 peak; it does not exceed it.** The lever is "exclude
+  reprint/remaster/Masters sets," and 0.325–0.326 is the corpus-breadth ceiling for this recipe/holdout.
+  (Replicates the 2-seed curve's 19=0.326 / 22=0.305.)
+
+**Curated recipe:** train on the **~19 relevant expansion/draft-innovation sets**; explicitly exclude
+remaster (SIR), Masters/reprint (PIO), and the oldest off-Standard sets. STX optional (marginal).
+
 ## Why more sets helps the WR axis (hypothesis)
 
 The model is content-based; more diverse sets = broader coverage of card *types* the encoder must
@@ -84,7 +115,10 @@ improve as the encoder's value sense sharpens with corpus breadth.
 
 - ~~One holdout~~ **Confirmed on 4 holdouts** (DSK/OTJ/MOM/FDN, all +0.014–0.025) — see above.
 - ~~Past 15 unknown~~ **Resolved: peaks ~19, declines at 22** when padded with remaster/Masters/old
-  sets (STX/SIR/PIO) — corpus *relevance* matters, not just count. A curated ~19 may do even better.
+  sets (STX/SIR/PIO) — corpus *relevance* matters, not just count.
+- ~~A curated ~19 may do even better~~ **Resolved: it's relevance, not count** (curation section above).
+  Excluding the off-distribution sets recovers the peak (0.325) but does **not** exceed it; SIR/PIO are
+  the culprits, STX is neutral. 0.325–0.326 is the corpus-breadth ceiling for this recipe/holdout.
 - Single target/config; `deck_value`-target × ~19-set is the obvious compounding test.
 
 ## Implications
