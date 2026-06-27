@@ -30,7 +30,7 @@
   "target_in_train": true,
   "max_pool": 45,
   "max_pack": 15,
-  "emb_dim": 256,
-  "enc_hidden": 512,
-  "enc_layers": 3
+  "emb_dim": 512,
+  "enc_hidden": 1024,
+  "enc_layers": 4
 }
