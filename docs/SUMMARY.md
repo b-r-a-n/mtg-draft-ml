@@ -123,4 +123,6 @@ pool's recommended deck on the three validated lenses — **power** (`deck_value
 castability) — with specific advice (splash/cut, on-curve weak spots, borderline includes, stranded
 sideboard cards). The doctor is **live in the webapp** — a panel that rates a real 17lands deck (12 real
 drafted pools per set baked in) or your own draft, with the castability model **ported to the browser**
-(verified JS==Python to 0.00). Optional next: surfacing card-similarity inside the draft UI.
+(verified JS==Python to 0.00). And **card similarity is live in the draft UI** — hovering a card shows
+its nearest neighbors ("plays like Valgavoth · Doomsday Excruciator …") from a per-set embedding table
+baked into the webapp. The embedding-tools track (similarity → deck doctor) is shipped end-to-end.
