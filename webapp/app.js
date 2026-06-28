@@ -75,21 +75,24 @@ function makeBooster() {
 
 // ---- inference (batched over seats) -----------------------------------------------------------
 async function inferAll() {
-  const B = N_SEATS, MAXP = S.MAXP, MAXK = S.MAXK;
-  const pool = new BigInt64Array(B * MAXP), poolM = new Uint8Array(B * MAXP);
-  const pack = new BigInt64Array(B * MAXK), packM = new Uint8Array(B * MAXK);
+  const B = N_SEATS, NB = B + 1, MAXP = S.MAXP, MAXK = S.MAXK;   // +1 row = human pack vs EMPTY pool (baseline)
+  const pool = new BigInt64Array(NB * MAXP), poolM = new Uint8Array(NB * MAXP);
+  const pack = new BigInt64Array(NB * MAXK), packM = new Uint8Array(NB * MAXK);
   for (let s = 0; s < B; s++) {
     const pl = S.seats[s].pool, pk = S.packs[s];
     for (let j = 0; j < pl.length && j < MAXP; j++) { pool[s * MAXP + j] = BigInt(pl[j]); poolM[s * MAXP + j] = 1; }
     for (let j = 0; j < pk.length && j < MAXK; j++) { pack[s * MAXK + j] = BigInt(pk[j]); packM[s * MAXK + j] = 1; }
   }
+  const hp = S.packs[HUMAN];                              // baseline row B: human pack, empty pool (poolM stays 0)
+  for (let j = 0; j < hp.length && j < MAXK; j++) { pack[B * MAXK + j] = BigInt(hp[j]); packM[B * MAXK + j] = 1; }
   const t = (d, a, dim) => new ort.Tensor(d, a, dim);
   const out = await S.session.run({
-    pool: t("int64", pool, [B, MAXP]), pool_mask: t("bool", poolM, [B, MAXP]),
-    pack: t("int64", pack, [B, MAXK]), pack_mask: t("bool", packM, [B, MAXK]),
+    pool: t("int64", pool, [NB, MAXP]), pool_mask: t("bool", poolM, [NB, MAXP]),
+    pack: t("int64", pack, [NB, MAXK]), pack_mask: t("bool", packM, [NB, MAXK]),
   });
-  const L = out.logits.data;                              // Float32 [B, MAXK]
-  return S.seats.map((_, s) => Array.from(L.slice(s * MAXK, s * MAXK + S.packs[s].length)));
+  const L = out.logits.data;                              // Float32 [NB, MAXK]
+  const logits = S.seats.map((_, s) => Array.from(L.slice(s * MAXK, s * MAXK + S.packs[s].length)));
+  return { logits, humanEmpty: Array.from(L.slice(B * MAXK, B * MAXK + hp.length)) };
 }
 
 // effective score = model logit + aggressiveness * z(deck_value)
@@ -126,7 +129,7 @@ async function nextPick() {
   }
   S.busy = true;
   $("packTitle").textContent = `Pack ${S.round + 1}, Pick ${S.pick + 1}`;
-  const logits = await inferAll();
+  const { logits, humanEmpty } = await inferAll();
   // bots commit their picks now (simultaneous with the human deliberating)
   for (let s = 0; s < N_SEATS; s++) {
     if (s === HUMAN) continue;
@@ -135,7 +138,7 @@ async function nextPick() {
     S.seats[s].pool.push(choice);
     S.packs[s] = S.packs[s].filter((c) => c !== choice);
   }
-  renderHumanPack(logits[HUMAN]);                          // overlay + wait for click
+  renderHumanPack(logits[HUMAN], humanEmpty);              // overlay + wait for click
   renderSeats();
   S.busy = false;
 }
@@ -279,19 +282,24 @@ function finishDraft() {
 }
 
 // ---- rendering ----------------------------------------------------------------------------------
-function renderHumanPack(logits) {
+function renderHumanPack(logits, emptyLogits) {
   const pack = S.packs[HUMAN];
   const scores = eff(logits, pack, S.humanAgg), probs = softmax(scores), top = argmax(scores);
+  // baseline: same pack scored against an EMPTY pool -> delta shows how your pool shifted each card
+  const probs0 = emptyLogits ? softmax(eff(emptyLogits, pack, S.humanAgg)) : null;
   const modelTopIdx = pack[top];
   const order = pack.map((_, k) => k).sort((a, b) => probs[b] - probs[a]);
   const el = $("pack"); el.innerHTML = "";
   const before = [...pack];
   order.forEach((k) => {
     const ci = pack[k], c = S.cards[ci], dv = c.deck_value;
+    const d = probs0 ? (probs[k] - probs0[k]) * 100 : 0;    // pick-% shift vs empty pool (pool/synergy effect)
+    const syn = Math.abs(d) >= 2.5
+      ? `<span class="syn ${d > 0 ? "up" : "down"}" title="pick-% vs an empty pool — how your pool changed this card">${d > 0 ? "▲" : "▼"}${Math.abs(d).toFixed(0)}</span>` : "";
     const div = document.createElement("div");
     div.className = "card" + (k === top ? " modelpick" : "");
     div.innerHTML =
-      `<span class="badge r-${c.rarity}">${(probs[k] * 100).toFixed(0)}%${k === top ? " ★" : ""}</span>` +
+      `<span class="badge r-${c.rarity}">${(probs[k] * 100).toFixed(0)}%${k === top ? " ★" : ""}</span>` + syn +
       (c.img ? `<img loading="lazy" src="${c.img}" alt="${c.name}">` : `<div style="padding:8px">${c.name}</div>`) +
       `<div class="ov"><div class="bar"><i style="width:${(probs[k] * 100).toFixed(0)}%"></i></div>` +
       `<div class="dv"><span>${c.name.length > 18 ? c.name.slice(0, 17) + "…" : c.name}</span>` +

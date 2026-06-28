@@ -100,3 +100,13 @@ table.breakdown .pip { width: 11px; height: 11px; vertical-align: middle; }
 .dcmc .cmc { display: inline-block; min-width: 14px; text-align: center; color: #7ed957; font-weight: 600; }
 .dcard { display: inline-flex; align-items: center; gap: 3px; background: #20252f; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
 .dcard .pip { width: 9px; height: 9px; }
+
+/* pick-% vs empty-pool delta (synergy/pool effect) on each pack card */
+.syn { position: absolute; top: 4px; right: 4px; font-size: 10px; font-weight: 700; padding: 1px 4px; border-radius: 4px; z-index: 2; }
+.syn.up { color: #7ed957; background: rgba(126,217,87,.16); }
+.syn.down { color: #ff7a7a; background: rgba(255,122,122,.16); }
+/* draft legend */
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 11px; color: #9aa; margin-top: 6px; align-items: center; }
+.legend b { color: #cde; }
+.legend .pos { color: #7ed957; } .legend .neg { color: #ff7a7a; }
+.legend .syn { position: static; }
