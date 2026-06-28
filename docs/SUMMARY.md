@@ -108,6 +108,14 @@ The research arc is **complete**: the pick model is at its characterized ceiling
 noise; WR-agreement ≈0.326 corpus-breadth ceiling, **beating average human**), it drafts **outcome-better
 decks than humans**, the curve question is **resolved** (real-but-small, build-time), and the best recipe
 is **deployed end-to-end** in a live in-browser webapp. Every modeling lever with headroom has been pulled
-or explicitly bounded out; what remains is **product/operational** (webapp iteration, ingesting new sets
-as they release), not new modeling. The one open *research* probe — a curve-aware picker arm — is
-judged not worth running, since the de-censored effect is too small to expect a pick-time gain.
+or explicitly bounded out; what remains is **product**, not new modeling. The one open *research* probe —
+a curve-aware picker arm — is judged not worth running, since the de-censored effect is too small to
+expect a pick-time gain.
+
+**Product track underway — tools over the learned embedding space.** The content encoder's per-card
+latent (trained on draft value) is a reusable asset: cosine-near ≈ similar draft role/archetype.
+`eval/card_tools.py` + `scripts/export_embeddings.py` expose **card similarity ("plays like X")**,
+**cross-set analogues** ("the BLB version of a DSK card"), and an **unsupervised archetype map** — all
+verified coherent (e.g. a DSK black bomb's neighbors are other black bombs; its BLB analogue is a BLB
+black bomb). Next on this track: a **deck doctor** ("rate my deck" = power + buildability + the now
+outcome-validated castability), and optionally surfacing similarity inside the webapp.
