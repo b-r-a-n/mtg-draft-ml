@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import json
 import pathlib
 
 import numpy as np
@@ -43,6 +44,8 @@ def main(argv=None):
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument("--data-dir", default="data/hf")
     ap.add_argument("--out-dir", default="data/embeddings")
+    ap.add_argument("--webapp", action="store_true",
+                    help="also write webapp/data/<SET>.emb.json (unit-normalized, for in-browser 'plays like')")
     a = ap.parse_args(argv)
 
     model = ct.load_dev_model()
@@ -86,7 +89,15 @@ def main(argv=None):
         except FileNotFoundError as e:
             print(f"  {s}: SKIP ({e})"); continue
         np.savez(out / f"{s}.npz", E=E, names=names, valid=valid)
-        print(f"  {s}: {E.shape[0]} cards ({int(valid.sum())} valid), emb_dim={E.shape[1]}")
+        if a.webapp:
+            # unit-normalize (so the browser's cosine NN is a plain dot product), round to keep it small
+            En = (E / (np.linalg.norm(E, axis=1, keepdims=True) + 1e-9)).round(3)
+            blob = {"dim": int(E.shape[1]), "emb": En.tolist(), "valid": valid.astype(int).tolist()}
+            wp = pathlib.Path("webapp/data") / f"{s}.emb.json"
+            wp.write_text(json.dumps(blob, separators=(",", ":")))
+            print(f"  {s}: {E.shape[0]} cards ({int(valid.sum())} valid) -> npz + {wp} ({wp.stat().st_size//1024} KB)")
+        else:
+            print(f"  {s}: {E.shape[0]} cards ({int(valid.sum())} valid), emb_dim={E.shape[1]}")
 
 
 if __name__ == "__main__":

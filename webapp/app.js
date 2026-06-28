@@ -9,7 +9,7 @@ const SLOTS = { raremythic: 1, uncommon: 3, common: 8, wildcard: 2 };
 const COLORS = ["W", "U", "B", "R", "G", "C"];
 
 const S = {                                              // global state
-  session: null, meta: null, cards: [], byRarity: {}, qz: [], realPacks: null, playprob: null, sampleDecks: null, MAXP: 45, MAXK: 15,
+  session: null, meta: null, cards: [], byRarity: {}, qz: [], realPacks: null, playprob: null, sampleDecks: null, emb: null, embValid: null, MAXP: 45, MAXK: 15,
   seats: [], packs: [], round: 0, pick: 0, dir: 1, humanAgg: 0, botAgg: 3, busy: false,
   stats: null, seen: [],
 };
@@ -37,6 +37,9 @@ async function loadSet(setCode) {
   // deck-doctor: real 17lands decks to point the doctor at (deck.js); falls back gracefully if absent
   S.sampleDecks = await fetch(`data/${setCode}.sampledecks.json`).then((r) => r.ok ? r.json() : null).catch(() => null);
   if (typeof initDoctor === "function") initDoctor();
+  // per-card learned embeddings (dev-net) for in-draft "plays like" similarity; cosine == dot (unit-norm)
+  const eb = await fetch(`data/${setCode}.emb.json`).then((r) => r.ok ? r.json() : null).catch(() => null);
+  S.emb = eb ? eb.emb : null; S.embValid = eb ? eb.valid : null; S._sim = {};
   setStatus(`${setCode} ready · model emb${meta.emb_dim}/h${meta.enc_hidden} · ${cards.length} cards` +
     (meta.target_in_train ? "" : " · (held-out: model never trained on this set)"));
 }
@@ -323,11 +326,29 @@ function renderSeats() {
     `<span class="agg">${s.isHuman ? `pool ${s.pool.length}` : `agg ${s.agg.toFixed(1)} · ${s.pool.length}`}</span></div>`).join("");
 }
 
+// cosine nearest neighbors in the learned card-embedding space (dev-net emb, unit-normalized -> dot).
+// "plays like" = similar draft role/archetype. Memoized per card; degenerate (missing-Scryfall) cards skipped.
+function similarCards(i, k = 3) {
+  if (!S.emb || !S.emb[i] || (S.embValid && !S.embValid[i])) return [];
+  if (S._sim[i]) return S._sim[i];
+  const q = S.emb[i], E = S.emb, dim = q.length, out = [];
+  for (let j = 0; j < E.length; j++) {
+    if (j === i || (S.embValid && !S.embValid[j])) continue;
+    let d = 0; const ej = E[j]; for (let t = 0; t < dim; t++) d += q[t] * ej[t];
+    out.push([j, d]);
+  }
+  out.sort((a, b) => b[1] - a[1]);
+  return (S._sim[i] = out.slice(0, k).map(([j]) => j));
+}
+
 function showTip(e, c) {
   if (!c.img) return; const t = $("cardtip");
-  t.innerHTML = `<img src="${c.img}">`; t.hidden = false;
+  const sim = similarCards(c.i, 3).map((j) => S.cards[j].name);
+  t.innerHTML = `<img src="${c.img}">` +
+    (sim.length ? `<div class="tipsim"><b>plays like</b> ${sim.join(" · ")}</div>` : "");
+  t.hidden = false;
   const x = Math.min(e.clientX + 16, innerWidth - 256);
-  t.style.left = x + "px"; t.style.top = Math.min(e.clientY + 16, innerHeight - 340) + "px";
+  t.style.left = x + "px"; t.style.top = Math.min(e.clientY + 16, innerHeight - 360) + "px";
 }
 const hideTip = () => ($("cardtip").hidden = true);
 
