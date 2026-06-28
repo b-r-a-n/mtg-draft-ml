@@ -19,13 +19,23 @@ const setStatus = (t) => { $("status").textContent = t; };
 
 // ---- load -------------------------------------------------------------------------------------
 async function loadSet(setCode) {
+  // load token: if a newer loadSet starts while this one's awaits are in flight, the stale one must
+  // NOT apply its results (else session/cards/packs go out of sync -> Gather out-of-bounds crashes).
+  const myLoad = (S._loadId = (S._loadId || 0) + 1);
   setStatus(`loading ${setCode}…`);
+  const j = (url) => fetch(url).then((r) => r.ok ? r.json() : null).catch(() => null);
   const meta = await (await fetch(`data/${setCode}.meta.json`)).json();
   const cards = (await (await fetch(`data/${setCode}.cards.json`)).json()).cards;
-  S.realPacks = await fetch(`data/${setCode}.packs.json`).then((r) => r.ok ? r.json() : null).catch(() => null);
-  // learned buildability deckbuilder (P(played|pool) as JSON trees); falls back to deck_value sort if absent
-  S.playprob = await fetch(`model/${setCode}.playprob.json`).then((r) => r.ok ? r.json() : null).catch(() => null);
+  const realPacks = await j(`data/${setCode}.packs.json`);
+  const playprob = await j(`model/${setCode}.playprob.json`);      // buildability deckbuilder (P(played|pool))
+  const session = await ort.InferenceSession.create(`${meta.onnx}`, { executionProviders: ["wasm"] });
+  const sampleDecks = await j(`data/${setCode}.sampledecks.json`); // real 17lands decks for the doctor
+  const eb = await j(`data/${setCode}.emb.json`);                  // per-card dev-net embeddings ("plays like")
+  if (myLoad !== S._loadId) return;                               // superseded by a later load -> drop results
+  // apply ALL set state atomically (after every await), so the running model always matches the cards
   S.meta = meta; S.cards = cards; S.MAXP = meta.max_pool; S.MAXK = meta.max_pack;
+  S.realPacks = realPacks; S.playprob = playprob; S.session = session;
+  S.sampleDecks = sampleDecks; S.emb = eb ? eb.emb : null; S.embValid = eb ? eb.valid : null; S._sim = {};
   // z-score the dial signal (deck_value) over rated cards, like deploy.Drafter
   const qs = cards.map((c) => c.q).filter((v) => v != null && isFinite(v));
   const mu = qs.reduce((a, b) => a + b, 0) / Math.max(qs.length, 1);
@@ -33,13 +43,7 @@ async function loadSet(setCode) {
   S.qz = cards.map((c) => (c.q == null || !isFinite(c.q)) ? 0 : (c.q - mu) / sd);
   S.byRarity = { rare: [], mythic: [], uncommon: [], common: [] };
   cards.forEach((c) => (S.byRarity[c.rarity] || S.byRarity.common).push(c.i));
-  S.session = await ort.InferenceSession.create(`${meta.onnx}`, { executionProviders: ["wasm"] });
-  // deck-doctor: real 17lands decks to point the doctor at (deck.js); falls back gracefully if absent
-  S.sampleDecks = await fetch(`data/${setCode}.sampledecks.json`).then((r) => r.ok ? r.json() : null).catch(() => null);
   if (typeof initDoctor === "function") initDoctor();
-  // per-card learned embeddings (dev-net) for in-draft "plays like" similarity; cosine == dot (unit-norm)
-  const eb = await fetch(`data/${setCode}.emb.json`).then((r) => r.ok ? r.json() : null).catch(() => null);
-  S.emb = eb ? eb.emb : null; S.embValid = eb ? eb.valid : null; S._sim = {};
   setStatus(`${setCode} ready · model emb${meta.emb_dim}/h${meta.enc_hidden} · ${cards.length} cards` +
     (meta.target_in_train ? "" : " · (held-out: model never trained on this set)"));
 }
@@ -80,11 +84,11 @@ async function inferAll() {
   const pack = new BigInt64Array(NB * MAXK), packM = new Uint8Array(NB * MAXK);
   for (let s = 0; s < B; s++) {
     const pl = S.seats[s].pool, pk = S.packs[s];
-    for (let j = 0; j < pl.length && j < MAXP; j++) { pool[s * MAXP + j] = BigInt(pl[j]); poolM[s * MAXP + j] = 1; }
-    for (let j = 0; j < pk.length && j < MAXK; j++) { pack[s * MAXK + j] = BigInt(pk[j]); packM[s * MAXK + j] = 1; }
+    for (let j = 0; j < pl.length && j < MAXP; j++) { if (pl[j] == null) continue; pool[s * MAXP + j] = BigInt(pl[j]); poolM[s * MAXP + j] = 1; }
+    for (let j = 0; j < pk.length && j < MAXK; j++) { if (pk[j] == null) continue; pack[s * MAXK + j] = BigInt(pk[j]); packM[s * MAXK + j] = 1; }
   }
   const hp = S.packs[HUMAN];                              // baseline row B: human pack, empty pool (poolM stays 0)
-  for (let j = 0; j < hp.length && j < MAXK; j++) { pack[B * MAXK + j] = BigInt(hp[j]); packM[B * MAXK + j] = 1; }
+  for (let j = 0; j < hp.length && j < MAXK; j++) { if (hp[j] == null) continue; pack[B * MAXK + j] = BigInt(hp[j]); packM[B * MAXK + j] = 1; }
   const t = (d, a, dim) => new ort.Tensor(d, a, dim);
   const out = await S.session.run({
     pool: t("int64", pool, [NB, MAXP]), pool_mask: t("bool", poolM, [NB, MAXP]),
@@ -132,8 +136,8 @@ async function nextPick() {
   const { logits, humanEmpty } = await inferAll();
   // bots commit their picks now (simultaneous with the human deliberating)
   for (let s = 0; s < N_SEATS; s++) {
-    if (s === HUMAN) continue;
-    const sc = eff(logits[s], S.packs[s], S.seats[s].agg);
+    if (s === HUMAN || S.packs[s].length === 0) continue;   // skip seats whose pack already ran dry
+    const sc = eff(logits[s], S.packs[s], S.seats[s].agg);   // (real packs vary in size -> deplete unevenly)
     const choice = S.packs[s][argmax(sc)];
     S.seats[s].pool.push(choice);
     S.packs[s] = S.packs[s].filter((c) => c !== choice);
