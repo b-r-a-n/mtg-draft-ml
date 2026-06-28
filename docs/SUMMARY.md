@@ -62,8 +62,12 @@ context · pack vecs ─► masked softmax over the pack ─► pick     (+ deck
 5. **The model drafts outcome-better decks than humans** (non-circular: GIH-trained, game_data-scored)
    — and the edge survives a realistic deck build. ([outcome-eval.md])
 6. **"Beyond imitation" is bounded — and the curve question is now resolved.** Deck win rate is ≈linear
-   in card composition, so per-card value is near the achievable ceiling and a smarter pool-conditioned
-   *pick* objective has ~no extra signal (pick-time buildability weighting is flat once in-distribution).
+   in card composition, so per-card value is near the achievable ceiling and adding a *smarter*
+   pool-conditioned *pick* objective has ~no extra signal — **because the Set Transformer already
+   pool-conditions**: it drafts in-context synergy (a Detective payoff jumps from 4th to the #1 pick once
+   you have Detectives, color-controlled — [synergy-probe.md](results/synergy-probe.md)), which is exactly
+   why bolting on explicit pick-time buildability was redundant/flat. (Synergy still isn't a big *outcome*
+   driver beyond per-card value — that bound holds; the model just *drafts* the synergy anyway.)
    The open caveat — game_data is range-restricted to curve-sane built decks, so curve was *censored*,
    not tested — is **closed**: with skill-diverse decks + a cross-fit leak-free power control, castability
    has a **small but real, consistent positive** effect on winning (**significant in 8/8 sets**, mean coef

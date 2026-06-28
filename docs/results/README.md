@@ -164,6 +164,13 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
   and the mechanistic [castability.py] is **outcome-validated** — but the effect is small (~0 held-out AUC
   lift), i.e. curve is a real *build*-time lever, not a large pick-time miss. Doesn't reopen "pick-time
   curve valueless" without the picker arm.
+- [synergy-probe.md](synergy-probe.md) — **does the pick model read archetype synergy? YES** (Detective
+  probe). Controlling for color, a Detective payoff (Case of the Pilfered Proof, deck_value −0.04) goes
+  from 4th (8%) to the **#1 pick (34%)** once the pool is Detective-heavy, while an off-synergy bomb
+  collapses; the color-matched control doesn't reproduce it. Corrects the overstated "synergy-blind"
+  framing: the Set Transformer **does** draft pool-conditioned synergy (learned by imitating good
+  drafters) — which is exactly why the explicit pick-time buildability signal was redundant/flat. The
+  outcome-linearity bound (synergy doesn't *win* more beyond card value) is separate and still holds.
 - [game-data-value-model.md](game-data-value-model.md) — **game_data value model (Steps 0–2)**:
   per-game outcome regression β_c → `deck_value`. Step 0 = **PROCEED**; Step 1 = built for all 8 sets
   (face-plausible, split-half ρ 0.64, on HF); **Step 2 (4-seed)** = `deck_value` is a **better target**

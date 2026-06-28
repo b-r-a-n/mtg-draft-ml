@@ -95,7 +95,10 @@ eval, and the nonlinearity/synergy bound. Conclusions (see Status above + `docs/
   cross-fit leak-free power control), is **real and consistent — 8/8 sets — but SMALL** (~0 held-out AUC
   lift; [decensor-curve.md](results/decensor-curve.md)). So a deck-strength *value* model over pools,
   advantage-weighted offline RL, and JueWuDraft-style policy/value + lookahead have **too little extra
-  outcome signal to justify** beyond per-card value. Not worth building **on this data**.
+  outcome signal to justify** beyond per-card value. Not worth building **on this data**. (NB: "synergy
+  isn't a big *outcome* driver" ≠ "the model ignores synergy" — the pick model demonstrably *drafts*
+  pool-conditioned synergy: a Detective payoff jumps from 4th to the #1 pick once you have Detectives,
+  color-controlled, [synergy-probe.md](results/synergy-probe.md). It learned it by imitating good drafters.)
 
 **What would actually unlock the pool-dependent dynamic** (curve/castability/synergy) — i.e. the signal
 the current `won`-over-composition data lacks:
@@ -105,7 +108,8 @@ the current `won`-over-composition data lacks:
   pool context, vs *zero* gain for `won`), and recovers castability with no feature engineering (a white
   2-drop's play-prob: 0.17 in a white-splash deck → 0.90 when white-committed).
   ([play-prob.md](results/play-prob.md)) **Folding it into the *pick* policy doesn't help** (flat/worse
-  — OOD on partial pools + the model already drafts coherently); the signal belongs at the deck-*build*
+  — OOD on partial pools + the model already pool-conditions, drafting in-context synergy/coherence on its
+  own — [synergy-probe.md](results/synergy-probe.md)); the signal belongs at the deck-*build*
   step, reinforcing "pick for value, build for buildability." **✅ SHIPPED:** the webapp deckbuilder now
   ranks deck spells by `P(played|pool)` (sklearn HGB exported as in-browser JSON trees), building
   ~2-color decks; it's also the outcome-eval deckbuilder (+0.049 vs the 2-color+curve heuristic). And the
