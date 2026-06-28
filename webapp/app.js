@@ -9,7 +9,7 @@ const SLOTS = { raremythic: 1, uncommon: 3, common: 8, wildcard: 2 };
 const COLORS = ["W", "U", "B", "R", "G", "C"];
 
 const S = {                                              // global state
-  session: null, meta: null, cards: [], byRarity: {}, qz: [], realPacks: null, MAXP: 45, MAXK: 15,
+  session: null, meta: null, cards: [], byRarity: {}, qz: [], realPacks: null, playprob: null, MAXP: 45, MAXK: 15,
   seats: [], packs: [], round: 0, pick: 0, dir: 1, humanAgg: 0, botAgg: 3, busy: false,
   stats: null, seen: [],
 };
@@ -23,6 +23,8 @@ async function loadSet(setCode) {
   const meta = await (await fetch(`data/${setCode}.meta.json`)).json();
   const cards = (await (await fetch(`data/${setCode}.cards.json`)).json()).cards;
   S.realPacks = await fetch(`data/${setCode}.packs.json`).then((r) => r.ok ? r.json() : null).catch(() => null);
+  // learned buildability deckbuilder (P(played|pool) as JSON trees); falls back to deck_value sort if absent
+  S.playprob = await fetch(`model/${setCode}.playprob.json`).then((r) => r.ok ? r.json() : null).catch(() => null);
   S.meta = meta; S.cards = cards; S.MAXP = meta.max_pool; S.MAXK = meta.max_pack;
   // z-score the dial signal (deck_value) over rated cards, like deploy.Drafter
   const qs = cards.map((c) => c.q).filter((v) => v != null && isFinite(v));
@@ -157,14 +159,58 @@ function recommendLands(cmcs) {
   return { lands: avg < 2.6 ? 16 : avg > 3.3 ? 18 : 17, avgCmc: avg };
 }
 
+// ---- buildability deckbuilder: P(played|pool) as JSON trees (mirrors eval/play_prob.py) ----------
+const PP_COLORS = ["W", "U", "B", "R", "G"];
+function ppMargin(feat, pp) {                       // tree-walk -> raw margin (monotone in P(played); ranking only)
+  let s = pp.base;
+  for (const t of pp.trees) {
+    let i = 0;
+    while (!t.leaf[i]) {
+      const x = feat[t.f[i]];
+      i = Number.isNaN(x) ? (t.ml[i] ? t.l[i] : t.r[i]) : (x <= t.thr[i] ? t.l[i] : t.r[i]);
+    }
+    s += t.val[i];
+  }
+  return s;
+}
+function ppPoolFeats(pool) {                         // [12] = poolcolor[5] + pool cmc-bucket[1..6] + size
+  const col = [0, 0, 0, 0, 0], cmc = [0, 0, 0, 0, 0, 0]; let size = 0;
+  for (const idx of pool) {
+    const c = S.cards[idx], ci = c.ci || "";
+    for (let k = 0; k < 5; k++) if (ci.includes(PP_COLORS[k])) col[k] += 1;
+    const b = Math.min(6, Math.max(1, Math.round(c.cmc || 0)));   // cmc rounded, clipped 1..6
+    cmc[b - 1] += 1; size += 1;
+  }
+  return [...col, ...cmc, size];
+}
+function ppCardFeat(idx) {                           // [9] = [cmc, deck_value, W,U,B,R,G, creature, land]
+  const c = S.cards[idx], ci = c.ci || "";
+  const dv = (c.deck_value == null || !isFinite(c.deck_value)) ? NaN : c.deck_value;
+  return [c.cmc || 0, dv, ...PP_COLORS.map((k) => ci.includes(k) ? 1 : 0),
+    c.t === "creature" ? 1 : 0, c.t === "land" ? 1 : 0];
+}
+// nonland pool cards ranked by P(played|pool) — the learned buildability deck (mirrors deck_from_play_model)
+function buildSpellsPlayprob(pool) {
+  const cand = [...new Set(pool)].filter((i) => S.cards[i].t !== "land");   // unique nonland (dict.fromkeys)
+  if (!cand.length) return [];
+  const pf = ppPoolFeats(pool);                                            // over the FULL pool (dupes count)
+  return cand.map((i, k) => ({ i, k, m: ppMargin([...ppCardFeat(i), ...pf], S.playprob) }))
+    .sort((a, b) => (b.m - a.m) || (a.k - b.k))                            // desc; stable tie-break by pool order
+    .map((x) => x.i);
+}
+
 function seatSummary(pool) {
-  // build the deck from the best nonland spells by deck_value; land count from their curve
-  const nonland = pool.filter((i) => S.cards[i].t !== "land" && S.cards[i].deck_value != null)
-    .sort((a, b) => S.cards[b].deck_value - S.cards[a].deck_value);
+  // build the deck from the best nonland spells: P(played|pool) if available (learned buildability,
+  // ~2-color), else the context-free deck_value sort. Land count from the chosen spells' curve.
+  const nonland = S.playprob
+    ? buildSpellsPlayprob(pool)
+    : pool.filter((i) => S.cards[i].t !== "land" && S.cards[i].deck_value != null)
+      .sort((a, b) => S.cards[b].deck_value - S.cards[a].deck_value);
   const { lands, avgCmc } = recommendLands(nonland.slice(0, 23).map((i) => S.cards[i].cmc || 0));
   const play = nonland.slice(0, 40 - lands);
-  const avg = play.length ? play.reduce((a, i) => a + S.cards[i].deck_value, 0) / play.length : 0;
-  const cc = {}; pool.forEach((i) => (S.cards[i].ci || "").split("").forEach((c) => c !== "C" && (cc[c] = (cc[c] || 0) + 1)));
+  const avg = play.length ? play.reduce((a, i) => a + (S.cards[i].deck_value || 0), 0) / play.length : 0;
+  // colors off the BUILT deck (not the whole pool) — the deck the model would actually register/run
+  const cc = {}; play.forEach((i) => (S.cards[i].ci || "").split("").forEach((c) => c !== "C" && (cc[c] = (cc[c] || 0) + 1)));
   const colors = Object.entries(cc).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([c]) => c);
   return { avg, colors, lands, avgCmc, nSpells: play.length };
 }
