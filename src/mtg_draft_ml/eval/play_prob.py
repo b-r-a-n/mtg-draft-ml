@@ -50,6 +50,42 @@ class PlayModel:
         return self.gbm.predict_proba(F)[:, 1]
 
 
+class PlayTreeModel(PlayModel):
+    """PlayModel-compatible inference from the EXPORTED JSON trees (webapp/model/<SET>.playprob.json,
+    written by scripts/export_playprob.py) — no game_data / no retrain. Same 21-feature layout and the
+    same `.probs(pool, pack)` interface, so `deck_from_play_model` and callers work unchanged; the tree
+    walk mirrors the browser's (and reproduces the source HGB's `predict_proba` exactly)."""
+
+    def __init__(self, bundle: dict, cards, n: int):
+        cmc, beta, cmask, cmcb, creat, land = _card_arrays(cards, n)
+        super().__init__(None, cmc, beta, cmask, cmcb, creat, land)
+        self.base = float(bundle["base"])
+        self.trees = bundle["trees"]
+
+    def _margin(self, row) -> float:
+        s = self.base
+        for t in self.trees:
+            i = 0
+            while not t["leaf"][i]:
+                x = row[t["f"][i]]
+                i = (t["l"][i] if t["ml"][i] else t["r"][i]) if x != x \
+                    else (t["l"][i] if x <= t["thr"][i] else t["r"][i])
+            s += t["val"][i]
+        return s
+
+    def probs(self, pool, pack) -> np.ndarray:
+        pf = self.pool_feats(pool)
+        F = np.hstack([self.cardfeat[list(pack)], np.tile(pf, (len(pack), 1))])
+        m = np.array([self._margin(r) for r in F])
+        return 1.0 / (1.0 + np.exp(-m))
+
+
+def load_play_tree_model(set_code: str, cards, n: int, webapp_dir: str = "webapp") -> "PlayTreeModel":
+    """Load the exported `<SET>.playprob.json` trees into a PlayTreeModel (local, no game_data)."""
+    bundle = json.load(open(f"{webapp_dir}/model/{set_code}.playprob.json"))
+    return PlayTreeModel(bundle, cards, n)
+
+
 def deck_from_play_model(pm, pool, types, n_spells: int = 23) -> list[int]:
     """LEARNED deckbuilder: the n_spells nonland cards most likely to be played, by P(played | pool).
 

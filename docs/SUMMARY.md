@@ -117,5 +117,8 @@ latent (trained on draft value) is a reusable asset: cosine-near ≈ similar dra
 `eval/card_tools.py` + `scripts/export_embeddings.py` expose **card similarity ("plays like X")**,
 **cross-set analogues** ("the BLB version of a DSK card"), and an **unsupervised archetype map** — all
 verified coherent (e.g. a DSK black bomb's neighbors are other black bombs; its BLB analogue is a BLB
-black bomb). Next on this track: a **deck doctor** ("rate my deck" = power + buildability + the now
-outcome-validated castability), and optionally surfacing similarity inside the webapp.
+black bomb). And the **deck doctor** (`eval/deck_doctor.py` + `scripts/deck_doctor.py`) rates a drafted
+pool's recommended deck on the three validated lenses — **power** (`deck_value`), **buildability**
+(`P(played|pool)`, which also builds the deck), and **function** (the outcome-validated hypergeometric
+castability) — with specific advice (splash/cut, on-curve weak spots, borderline includes, stranded
+sideboard cards). Optional next: surfacing similarity / the doctor inside the webapp.
