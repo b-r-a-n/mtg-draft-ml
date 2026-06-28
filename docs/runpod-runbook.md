@@ -81,6 +81,13 @@ registered on the account with `runpodctl ssh list-keys`.
 
 - **Bootstrap:** `bash scripts/runpod_bootstrap.sh` (idempotent — uv, CUDA torch pinned via
   `pyproject.toml [tool.uv.sources]`, deps, and a fatal GPU-visibility check).
+- **CPU-only jobs** (de-censoring sweep, playprob export — any sklearn/pandas work): use
+  `scripts/runpod_bootstrap_cpu.sh` instead. The default bootstrap pulls the 2-3 GB CUDA torch wheel
+  and asserts a GPU; for CPU work that's wasted and **has hung on pod start mid-download** (cost a real
+  session). The CPU bootstrap installs CPU torch (~200 MB, needed by `game_value.fit_card_values`' torch
+  L-BFGS) + the runtime deps and is idempotent. **Run the venv python directly** —
+  `PYTHONPATH=src .venv/bin/python scripts/foo.py` — NOT `uv run` (auto-syncs → re-pulls the CUDA pin)
+  and NOT `uv pip install -e .` (same pin). See `pod_decensor.sh` / `pod_playprob.sh` for the pattern.
 - **Run the suite:** `scripts/pod_distill_suite.sh` (bootstrap → pull `b-r-a-n/mtg-draft` → the 3
   experiments). For the single best-recipe LOSO benchmark instead, use `scripts/pod_first_run.sh`.
 - **Get results off-pod:** `scp` the `data/*.json` back, or `huggingface-cli login` + push to an HF

@@ -156,6 +156,14 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
   *keeps* the reprint sets SIR/PIO scores 0.315 vs 0.325 for the one that drops them (equal count); the
   culprits are SIR (Innistrad remaster) + PIO (Pioneer Masters), STX is neutral. Curation recovers but
   does not exceed the ~0.326 peak → that's the corpus-breadth ceiling. Recipe: exclude remaster/Masters.
+- [decensor-curve.md](decensor-curve.md) — **does mana curve / castability actually matter, or is it
+  just censored?** game_data holds only curve-sane built decks, so "curve doesn't matter" was never
+  tested. With skill-diverse decks + a **cross-fit (leak-free) power control**, a deck's castability has a
+  **small but real, consistent positive** effect on `won` — **significant in 8/8 sets** (mean coef +0.044,
+  +0.023 residualized win-rate gap), color-concentration even stronger. So the censoring conclusion fails
+  and the mechanistic [castability.py] is **outcome-validated** — but the effect is small (~0 held-out AUC
+  lift), i.e. curve is a real *build*-time lever, not a large pick-time miss. Doesn't reopen "pick-time
+  curve valueless" without the picker arm.
 - [game-data-value-model.md](game-data-value-model.md) — **game_data value model (Steps 0–2)**:
   per-game outcome regression β_c → `deck_value`. Step 0 = **PROCEED**; Step 1 = built for all 8 sets
   (face-plausible, split-half ρ 0.64, on HF); **Step 2 (4-seed)** = `deck_value` is a **better target**

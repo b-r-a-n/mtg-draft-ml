@@ -21,14 +21,15 @@ if [ ! -f pyproject.toml ]; then
 fi
 git pull --ff-only 2>/dev/null || true
 
-echo "=== [$(date +%H:%M:%S)] bootstrap ==="; bash scripts/runpod_bootstrap.sh
+echo "=== [$(date +%H:%M:%S)] CPU bootstrap (sklearn only; no CUDA torch) ==="; bash scripts/runpod_bootstrap_cpu.sh
+export PYTHONPATH=src; PY=.venv/bin/python   # venv python directly: no `uv run` auto-sync, no CUDA pin
 echo "=== [$(date +%H:%M:%S)] pull manifests ($HF_REPO) ==="
-uv run python -m mtg_draft_ml.data.hf pull --repo "$HF_REPO" --out data/hf
+"$PY" -m mtg_draft_ml.data.hf pull --repo "$HF_REPO" --out data/hf
 echo "=== [$(date +%H:%M:%S)] stream slim game_data samples (${SAMPLE} rows/set) ==="
 for s in $SETS; do
-  uv run python -c "from mtg_draft_ml.data.download import download_17lands_game as d; print(d('$s', sample_rows=$SAMPLE))"
+  "$PY" -c "from mtg_draft_ml.data.download import download_17lands_game as d; print(d('$s', sample_rows=$SAMPLE))"
 done
 echo "=== [$(date +%H:%M:%S)] export playprob (train + parity per set) ==="
-uv run python scripts/export_playprob.py --sets "$(echo "$SETS" | tr ' ' ',')"
+"$PY" scripts/export_playprob.py --sets "$(echo "$SETS" | tr ' ' ',')"
 echo "=== [$(date +%H:%M:%S)] PLAYPROB_DONE ==="
 ls -la webapp/model/*.playprob.json

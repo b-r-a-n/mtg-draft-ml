@@ -1,0 +1,56 @@
+{
+  "sets": [
+    "BLB",
+    "DSK",
+    "LCI",
+    "MH3",
+    "MKM",
+    "MOM",
+    "OTJ",
+    "WOE"
+  ],
+  "summary": {
+    "cast": {
+      "mean_coef": 0.04384552838791835,
+      "mean_chi2": 11.924443290220552,
+      "n_sig": 8,
+      "n_sets": 8,
+      "mean_band": 0.022735503127279566,
+      "n_band_pos": 8,
+      "n_band": 8,
+      "coef_sign_consistent": true
+    },
+    "pip_conc": {
+      "mean_coef": 0.05540612121930339,
+      "mean_chi2": 18.65737932704269,
+      "n_sig": 8,
+      "n_sets": 8,
+      "mean_band": null,
+      "n_band_pos": 0,
+      "n_band": 0,
+      "coef_sign_consistent": true
+    },
+    "avg_cmc": {
+      "mean_coef": -0.01906007270439224,
+      "mean_chi2": 3.56531852610442,
+      "n_sig": 2,
+      "n_sets": 8,
+      "mean_band": -0.009789965545031469,
+      "n_band_pos": 1,
+      "n_band": 8,
+      "coef_sign_consistent": true
+    },
+    "n_lands": {
+      "mean_coef": -0.017868690824824972,
+      "mean_chi2": 2.40826646059395,
+      "n_sig": 1,
+      "n_sets": 8,
+      "mean_band": null,
+      "n_band_pos": 0,
+      "n_band": 0,
+      "coef_sign_consistent": false
+    }
+  },
+  "consistent_a": true,
+  "verdict": "(a) CURVE MATTERS once de-censored: castability has a consistent positive marginal effect across sets -> VALIDATES castability.py against real win/loss AND the bounded-out 'pick-time curve is valueless' verdict is no longer safe (run the picker arm to fully reopen)."
+}

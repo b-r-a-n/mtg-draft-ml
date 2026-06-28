@@ -23,20 +23,21 @@ if [ ! -f pyproject.toml ]; then
 fi
 git pull --ff-only 2>/dev/null || true
 
-echo "=== [$(date +%H:%M:%S)] bootstrap ==="; bash scripts/runpod_bootstrap.sh
+echo "=== [$(date +%H:%M:%S)] CPU bootstrap (no CUDA torch) ==="; bash scripts/runpod_bootstrap_cpu.sh
+export PYTHONPATH=src; PY=.venv/bin/python   # venv python directly: no `uv run` auto-sync, no CUDA pin
 echo "=== [$(date +%H:%M:%S)] pull scryfall+manifests ($HF_REPO) ==="
-uv run python -m mtg_draft_ml.data.hf pull --repo "$HF_REPO" --out data/hf
+"$PY" -m mtg_draft_ml.data.hf pull --repo "$HF_REPO" --out data/hf
 mkdir -p "$OUT"
 
 for s in $SETS; do
   echo "=== [$(date +%H:%M:%S)] $s: stream game_data (${SAMPLE} rows) + decensor ==="
-  uv run python -c "from mtg_draft_ml.data.download import download_17lands_game as d; print(d('$s', sample_rows=$SAMPLE))" \
+  "$PY" -c "from mtg_draft_ml.data.download import download_17lands_game as d; print(d('$s', sample_rows=$SAMPLE))" \
     || { echo "  $s: download FAILED, skipping"; continue; }
-  uv run python scripts/decensor_curve.py --set "$s" --max-decks "$MAXDECKS" --out "$OUT/$s.json" \
+  "$PY" scripts/decensor_curve.py --set "$s" --max-decks "$MAXDECKS" --out "$OUT/$s.json" \
     || echo "  $s: decensor FAILED"
   rm -f data/raw/game.$s.*.csv      # free disk between sets (each sample is hundreds of MB)
 done
 
 echo "=== [$(date +%H:%M:%S)] AGGREGATE ==="
-uv run python scripts/decensor_aggregate.py --dir "$OUT" --out "$OUT/_aggregate.json"
+"$PY" scripts/decensor_aggregate.py --dir "$OUT" --out "$OUT/_aggregate.json"
 echo "=== [$(date +%H:%M:%S)] DECENSOR_DONE ==="; ls -la "$OUT"

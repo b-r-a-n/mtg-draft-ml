@@ -1,0 +1,65 @@
+{
+  "set": "WOE",
+  "marginal": {
+    "n": 30391,
+    "win_rate": 0.5567437728274818,
+    "base_logloss": 0.6691479486924508,
+    "base_auc": 0.6041570214715488,
+    "descriptors": {
+      "avg_cmc": {
+        "coef_after_controls": -0.010956156603744206,
+        "logloss_lift": 0.00012929383600979172,
+        "auc_lift": 0.0002807671022617697,
+        "lr_chi2_1dof": 0.6820362342041335,
+        "corr_with_power": -0.10642394176992838,
+        "descriptor_std": 0.3553497593589171
+      },
+      "n_lands": {
+        "coef_after_controls": -0.0374071542229101,
+        "logloss_lift": 0.00016587226567976732,
+        "auc_lift": 0.0005317891362230931,
+        "lr_chi2_1dof": 7.774404943680565,
+        "corr_with_power": -0.15445947770917845,
+        "descriptor_std": 0.6042402850454006
+      },
+      "pip_conc": {
+        "coef_after_controls": 0.054978643833879855,
+        "logloss_lift": 0.0006766816665422226,
+        "auc_lift": 0.002082703583040524,
+        "lr_chi2_1dof": 17.248413594301383,
+        "corr_with_power": 0.04944493828708526,
+        "descriptor_std": 0.08839423348910795
+      },
+      "cast": {
+        "coef_after_controls": 0.028789017663615833,
+        "logloss_lift": 8.658072894296431e-06,
+        "auc_lift": -6.739288537471744e-05,
+        "lr_chi2_1dof": 4.699669122470368,
+        "corr_with_power": -0.023731279613743626,
+        "descriptor_std": 0.06559660313897575
+      }
+    }
+  },
+  "banded": {
+    "cast": {
+      "descriptor": "cast",
+      "n_cells": 24,
+      "mean_gap": 0.006547325252131142,
+      "mean_gap_raw": 0.0063639423021131895,
+      "mean_residual_power_gap": -0.001682359511514147,
+      "gap_std": 0.03146897157761001,
+      "frac_cells_positive": 0.625,
+      "note": "power-residualized high-minus-low-castability win-rate gap over power x skill cells; mean_gap is the de-confounded effect, mean_gap_raw the old inflated one, mean_residual_power_gap the leftover power (should be ~0)."
+    },
+    "avg_cmc": {
+      "descriptor": "avg_cmc",
+      "n_cells": 24,
+      "mean_gap": -0.01193428590447453,
+      "mean_gap_raw": -0.01208811832743531,
+      "mean_residual_power_gap": -0.002579072585602121,
+      "gap_std": 0.030227315057646163,
+      "frac_cells_positive": 0.375,
+      "note": "power-residualized high-minus-low-castability win-rate gap over power x skill cells; mean_gap is the de-confounded effect, mean_gap_raw the old inflated one, mean_residual_power_gap the leftover power (should be ~0)."
+    }
+  }
+}
