@@ -78,3 +78,13 @@ table.breakdown .pip { width: 11px; height: 11px; vertical-align: middle; }
 .cardtip { position: fixed; pointer-events: none; z-index: 50; width: 240px; border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,.6); }
 .cardtip img { width: 100%; display:block; border-radius: 8px; }
+
+/* deck doctor */
+#deckPick { width: 100%; margin-bottom: 8px; }
+#doctorReport .drow { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 13px; }
+#doctorReport .dmeta { color: #9aa; font-size: 12px; margin-left: auto; }
+.dbar { flex: 1; height: 8px; background: #2a2f3a; border-radius: 4px; overflow: hidden; max-width: 160px; }
+.dbar > span { display: block; height: 100%; background: linear-gradient(90deg,#5b8def,#7ed957); }
+.dturns { font-size: 11px; color: #9aa; margin: 4px 0; font-family: ui-monospace, monospace; }
+.dadvice { margin: 6px 0 0; padding-left: 16px; font-size: 12px; color: #cbd; }
+.dadvice li { margin: 3px 0; }

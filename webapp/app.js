@@ -9,7 +9,7 @@ const SLOTS = { raremythic: 1, uncommon: 3, common: 8, wildcard: 2 };
 const COLORS = ["W", "U", "B", "R", "G", "C"];
 
 const S = {                                              // global state
-  session: null, meta: null, cards: [], byRarity: {}, qz: [], realPacks: null, playprob: null, MAXP: 45, MAXK: 15,
+  session: null, meta: null, cards: [], byRarity: {}, qz: [], realPacks: null, playprob: null, sampleDecks: null, MAXP: 45, MAXK: 15,
   seats: [], packs: [], round: 0, pick: 0, dir: 1, humanAgg: 0, botAgg: 3, busy: false,
   stats: null, seen: [],
 };
@@ -34,6 +34,9 @@ async function loadSet(setCode) {
   S.byRarity = { rare: [], mythic: [], uncommon: [], common: [] };
   cards.forEach((c) => (S.byRarity[c.rarity] || S.byRarity.common).push(c.i));
   S.session = await ort.InferenceSession.create(`${meta.onnx}`, { executionProviders: ["wasm"] });
+  // deck-doctor: real 17lands decks to point the doctor at (deck.js); falls back gracefully if absent
+  S.sampleDecks = await fetch(`data/${setCode}.sampledecks.json`).then((r) => r.ok ? r.json() : null).catch(() => null);
+  if (typeof initDoctor === "function") initDoctor();
   setStatus(`${setCode} ready · model emb${meta.emb_dim}/h${meta.enc_hidden} · ${cards.length} cards` +
     (meta.target_in_train ? "" : " · (held-out: model never trained on this set)"));
 }
@@ -266,6 +269,7 @@ function finishDraft() {
       `<span class="lc mono">${r.nSpells}+${r.lands}</span>` +
       `<span class="dv mono">${r.avg.toFixed(3)}</span></div>`).join("") + `</div>`;
   renderPool();
+  if (typeof initDoctor === "function") initDoctor();   // add "Your drafted deck" to the doctor picker
 }
 
 // ---- rendering ----------------------------------------------------------------------------------
