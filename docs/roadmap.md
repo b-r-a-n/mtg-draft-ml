@@ -4,7 +4,7 @@ Local-first: Phases 0–2 run on the M1 dev machine; the multi-set generalizatio
 (Phase 3+) is the step intended for a rented cloud GPU. Each phase is shippable and comparable
 to the last via the eval harness stood up in Phase 0.
 
-## Status (2026-06-25) — what's settled, and how it reshapes the rest
+## Status (2026-06-28) — what's settled, and how it reshapes the rest
 
 Phases 0–3 shipped and the **game_data value model (Phase 4)** is now fully characterized
 (`docs/results/`). The headline updates change what's worth doing next:
@@ -25,14 +25,18 @@ Phases 0–3 shipped and the **game_data value model (Phase 4)** is now fully ch
   ([game-data-value-model.md](results/game-data-value-model.md))
 - **The model drafts outcome-better decks than humans** (non-circular), and the edge survives a
   realistic 2-color + curve deck-build (+0.029, 74% of seats). ([outcome-eval.md](results/outcome-eval.md))
-- **Hard ceiling on "beyond imitation": deck win rate is ≈ linear in card composition.** No
-  curve / castability / synergy interaction is recoverable as outcome-predictive structure (gradient
-  boosting ≈ linear; a targeted synergy test adds nothing held-out) — single-game outcomes are
-  noise-dominated (whole-deck AUC ≈ 0.61) and built-deck data is range-restricted. **Per-card value is
-  near the achievable ceiling.** Curve is a deck-*build* decision, not a pick decision (the model AND
-  good-player picks are both curve-blind), so **"pick for value, build for curve" is correct by
-  design**, and a smarter pool-conditioned pick objective has ~no extra signal to learn — **confirmed**:
-  pick-time buildability weighting is flat once made in-distribution ([play-prob-pick-time.md](results/play-prob-pick-time.md)).
+- **"Beyond imitation" ceiling — now de-censored and RESOLVED.** Deck win rate is ≈linear in card
+  composition: **per-card value is near the achievable ceiling**, and a smarter pool-conditioned *pick*
+  objective has ~no extra signal — confirmed, pick-time buildability weighting is flat once
+  in-distribution ([play-prob-pick-time.md](results/play-prob-pick-time.md)). The old open caveat — that
+  game_data is range-restricted to curve-sane built decks, so curve was *censored*, not tested — is now
+  **closed**: with skill-diverse decks + a **cross-fit (leak-free) power control**, a deck's castability
+  has a **small but real, consistent positive** effect on winning, **significant in 8/8 sets** (mean coef
+  +0.044), so "curve doesn't matter" was a censoring artifact and the mechanistic castability model
+  (`castability.py`, matches Karsten ±2) is **outcome-validated** ([decensor-curve.md](results/decensor-curve.md)).
+  But the effect is **small** (~0 held-out AUC lift): curve is a real *build*-time lever, not a pick-time
+  miss — so **"pick for value, build for curve" now stands empirically**, not by assumption. (The deployed
+  webapp deckbuilder already acts on this — a learned `P(played|pool)` buildability builder, ~2-color decks.)
 - **Shipped:** a static in-browser **draft-pod webapp** (WASM) running the deployed model on GitHub
   Pages ([webapp/](../webapp/README.md)).
 
@@ -87,9 +91,11 @@ eval, and the nonlinearity/synergy bound. Conclusions (see Status above + `docs/
 - ✅ **The model already exceeds human demonstrators** on outcome-scored decks (non-circular,
   curve-aware build) — so "beyond imitation" is *achieved* on the metric we can measure.
 - ⛔ **The value-RL / lookahead ambitions are bounded out.** Deck win rate is **≈ linear in card
-  composition** (no curve/castability/synergy interaction is outcome-predictive), so a deck-strength
-  *value* model over pools, advantage-weighted offline RL, and JueWuDraft-style policy/value + lookahead
-  have **~no extra outcome signal to learn** beyond per-card value. Not worth building **on this data**.
+  composition**: the curve/castability interaction, once **de-censored** (skill-diverse decks + a
+  cross-fit leak-free power control), is **real and consistent — 8/8 sets — but SMALL** (~0 held-out AUC
+  lift; [decensor-curve.md](results/decensor-curve.md)). So a deck-strength *value* model over pools,
+  advantage-weighted offline RL, and JueWuDraft-style policy/value + lookahead have **too little extra
+  outcome signal to justify** beyond per-card value. Not worth building **on this data**.
 
 **What would actually unlock the pool-dependent dynamic** (curve/castability/synergy) — i.e. the signal
 the current `won`-over-composition data lacks:
@@ -100,11 +106,15 @@ the current `won`-over-composition data lacks:
   2-drop's play-prob: 0.17 in a white-splash deck → 0.90 when white-committed).
   ([play-prob.md](results/play-prob.md)) **Folding it into the *pick* policy doesn't help** (flat/worse
   — OOD on partial pools + the model already drafts coherently); the signal belongs at the deck-*build*
-  step, reinforcing "pick for value, build for buildability." A build-time deckbuilder using
-  `P(played|pool)` (replacing the eval's hand-coded 2-color+curve heuristic) is the natural next use.
+  step, reinforcing "pick for value, build for buildability." **✅ SHIPPED:** the webapp deckbuilder now
+  ranks deck spells by `P(played|pool)` (sklearn HGB exported as in-browser JSON trees), building
+  ~2-color decks; it's also the outcome-eval deckbuilder (+0.049 vs the 2-color+curve heuristic). And the
+  mechanistic `castability.py` (hypergeometric, Karsten ±2) is now **outcome-validated** on real win/loss.
 - **A game simulator / self-play (principled, expensive — the long-standing gate):** removes the
   range restriction (built decks are all castable/sane) by playing out *arbitrary* decks, incl. bad
-  curves, so the interaction becomes observable. This is the only path to a true value/lookahead agent.
+  curves. **Partly answered cheaper:** the de-censoring study used *bad-player* decks (not a simulator) to
+  widen the curve distribution and showed the effect is real-but-small — so a simulator/self-play is the
+  only path to a true value/lookahead agent, but the small effect size says it would buy little.
 - **Lower-noise in-game proxies:** predict tempo/castability outcomes (mulligans, `num_turns`,
   drawn-but-stranded from the per-card `drawn_/opening_hand_` columns) instead of end-of-game `won` —
   higher signal-per-game for the specific dynamic.
