@@ -49,11 +49,15 @@ def _extract_trees(gbm):
         nd = stage[0].nodes
         for f in NODE_FIELDS:
             assert f in nd.dtype.names, f"sklearn node dtype missing {f!r} (sklearn {sklearn.__version__})"
+        # sklearn uses ±inf thresholds (always-left/right splits); JSON.parse REJECTS Infinity, so clip
+        # to a large finite sentinel — behavior-preserving since every feature is a small count/cmc/value.
+        thr = np.clip(nd["num_threshold"].astype(float), -1e38, 1e38)
+        val = np.clip(nd["value"].astype(float), -1e38, 1e38)
         trees.append({
             "leaf": nd["is_leaf"].astype(bool).astype(int).tolist(),
-            "val": nd["value"].astype(float).tolist(),
+            "val": val.tolist(),
             "f": nd["feature_idx"].astype(int).tolist(),
-            "thr": nd["num_threshold"].astype(float).tolist(),
+            "thr": thr.tolist(),
             "l": nd["left"].astype(int).tolist(),
             "r": nd["right"].astype(int).tolist(),
             "ml": nd["missing_go_to_left"].astype(bool).astype(int).tolist(),
@@ -136,7 +140,9 @@ def main(argv=None):
             "colors": ["W", "U", "B", "R", "G"], "sklearn_version": sklearn.__version__,
             "n_trees": len(trees),
         }
-        (WEB / "model" / f"{s}.playprob.json").write_text(json.dumps(bundle, separators=(",", ":")))
+        # allow_nan=False: hard guard that no Infinity/NaN leaks into the JSON (would break JSON.parse)
+        (WEB / "model" / f"{s}.playprob.json").write_text(
+            json.dumps(bundle, separators=(",", ":"), allow_nan=False))
         size = (WEB / "model" / f"{s}.playprob.json").stat().st_size / 1e6
         print(f"  {s}: {len(trees)} trees, {size:.2f} MB · parity max|Δp|={max_prob_diff:.2e} "
               f"deck_mismatch={deck_mismatch}/20")
