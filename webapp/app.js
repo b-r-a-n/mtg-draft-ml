@@ -218,7 +218,7 @@ function seatSummary(pool) {
   // colors off the BUILT deck (not the whole pool) — the deck the model would actually register/run
   const cc = {}; play.forEach((i) => (S.cards[i].ci || "").split("").forEach((c) => c !== "C" && (cc[c] = (cc[c] || 0) + 1)));
   const colors = Object.entries(cc).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([c]) => c);
-  return { avg, colors, lands, avgCmc, nSpells: play.length };
+  return { avg, colors, lands, avgCmc, nSpells: play.length, spells: play };
 }
 
 // color x type matrix for a pool: {color: {creature, spell, land}}
@@ -252,8 +252,11 @@ function finishDraft() {
   const cols = [...usedColors, ...(bd.m.C ? ["C"] : [])];
 
   $("summaryPanel").hidden = false;
+  const deckCards = (typeof deckListHTML === "function" && you.spells)
+    ? `<details class="ddeck" open><summary>Your deck — ${you.nSpells} spells + ${you.lands} lands</summary>${deckListHTML(you.spells)}</details>` : "";
   $("summary").innerHTML =
     `<div class="row"><span>Your deck (best ${you.nSpells} spells + ${you.lands} lands)</span><b>${you.avg.toFixed(3)}</b></div>` +
+    deckCards +
     `<div class="row"><span>Suggested lands <small>(avg CMC ${you.avgCmc.toFixed(1)})</small></span><b>${you.lands}</b></div>` +
     `<div class="row"><span>Pod finish</span><b>#${youRank} of ${N_SEATS}</b></div>` +
     `<div class="row"><span>You matched the model</span><b>${matchPct.toFixed(0)}%</b> <small>(${S.stats.matches}/${S.stats.picks})</small></div>` +

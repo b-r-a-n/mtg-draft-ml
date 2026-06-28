@@ -92,3 +92,11 @@ table.breakdown .pip { width: 11px; height: 11px; vertical-align: middle; }
 /* in-draft "plays like" similarity in the card tooltip */
 .tipsim { font-size: 11px; color: #cbd; background: #181c24; padding: 5px 7px; border-radius: 0 0 6px 6px; line-height: 1.4; max-width: 240px; }
 .tipsim b { color: #7ed957; font-weight: 600; margin-right: 4px; }
+
+/* built decklist (curve view) in the summary + doctor */
+.ddeck { margin-top: 8px; font-size: 12px; }
+.ddeck summary { cursor: pointer; color: #9aa; margin-bottom: 4px; }
+.dcmc { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 2px 0; }
+.dcmc .cmc { display: inline-block; min-width: 14px; text-align: center; color: #7ed957; font-weight: 600; }
+.dcard { display: inline-flex; align-items: center; gap: 3px; background: #20252f; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.dcard .pip { width: 9px; height: 9px; }

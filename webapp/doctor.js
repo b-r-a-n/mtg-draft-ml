@@ -126,6 +126,17 @@ function rateDeck(pool) {
 }
 
 // ---- UI -----------------------------------------------------------------------------------------
+// the built deck, grouped by mana value (a curve view), with each card's color + deck_value
+function deckListHTML(deckIdx) {
+  const byCmc = {};
+  deckIdx.forEach((i) => { const m = Math.min(7, Math.round(S.cards[i].cmc || 0)); (byCmc[m] = byCmc[m] || []).push(i); });
+  return Object.keys(byCmc).sort((a, b) => a - b).map((m) =>
+    `<div class="dcmc"><span class="cmc">${m}</span>` +
+    byCmc[m].sort((a, b) => (S.cards[b].deck_value || 0) - (S.cards[a].deck_value || 0)).map((i) =>
+      `<span class="dcard">${colorPips((S.cards[i].ci || "C").split("").filter((x) => x))}${S.cards[i].name}</span>`).join("") +
+    `</div>`).join("");
+}
+
 function renderDoctor(pool) {
   const r = rateDeck(pool);
   const bar = (x) => `<span class="dbar"><span style="width:${Math.round(x * 100)}%"></span></span>`;
@@ -137,7 +148,8 @@ function renderDoctor(pool) {
     `<div class="drow">castability ${bar(r.cast)} <small>${r.cast.toFixed(2)}</small></div>` +
     `<div class="drow">coherence ${bar(r.coherence)} <small>${r.coherence.toFixed(2)}</small></div>` +
     `<div class="dturns">on-curve by turn: ${pc}</div>` +
-    `<ul class="dadvice">${r.advice.map((a) => `<li>${a}</li>`).join("")}</ul>`;
+    `<ul class="dadvice">${r.advice.map((a) => `<li>${a}</li>`).join("")}</ul>` +
+    `<details class="ddeck" open><summary>the deck (${r.deck.length} spells + ${r.lands} lands)</summary>${deckListHTML(r.deck)}</details>`;
 }
 
 function resolveDeckNames(names) {                // card names -> indices (with multiples)
