@@ -121,4 +121,6 @@ black bomb). And the **deck doctor** (`eval/deck_doctor.py` + `scripts/deck_doct
 pool's recommended deck on the three validated lenses — **power** (`deck_value`), **buildability**
 (`P(played|pool)`, which also builds the deck), and **function** (the outcome-validated hypergeometric
 castability) — with specific advice (splash/cut, on-curve weak spots, borderline includes, stranded
-sideboard cards). Optional next: surfacing similarity / the doctor inside the webapp.
+sideboard cards). The doctor is **live in the webapp** — a panel that rates a real 17lands deck (12 real
+drafted pools per set baked in) or your own draft, with the castability model **ported to the browser**
+(verified JS==Python to 0.00). Optional next: surfacing card-similarity inside the draft UI.
