@@ -139,5 +139,6 @@ table.breakdown .pip { width: 11px; height: 11px; vertical-align: middle; }
 .mvcard img { width: 150px; border-radius: 7px; display: block; }
 .mvcard span { display: block; font-size: 11px; color: #cbd; text-align: center; margin-top: 2px; line-height: 1.2; }
 .mvcard .pip { width: 9px; height: 9px; }
+.mvcard .mult, .dcname .mult { color: #ffd166; font-weight: 700; }   /* ×N multiples badge */
 .viewdeck { margin: 8px 0; padding: 8px 14px; background: #5b8def; color: #fff; border: none; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; }
 .viewdeck:hover { background: #4a7de0; }

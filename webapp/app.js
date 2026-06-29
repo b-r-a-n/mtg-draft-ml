@@ -208,14 +208,22 @@ function ppCardFeat(idx) {                           // [9] = [cmc, deck_value, 
   return [c.cmc || 0, dv, ...PP_COLORS.map((k) => ci.includes(k) ? 1 : 0),
     c.t === "creature" ? 1 : 0, c.t === "land" ? 1 : 0];
 }
-// nonland pool cards ranked by P(played|pool) — the learned buildability deck (mirrors deck_from_play_model)
+// nonland pool cards ranked by P(played|pool), then EXPANDED to the pool's real copies — the learned
+// buildability deck WITH multiples (mirrors deck_from_play_model). Both copies of a card share the same
+// feature vector (so the same P(played)); we rank unique cards, then take each one's pool-count copies in
+// ranked order. Callers `.slice()` to the slot limit, so a strong 2-of can crowd out a marginal singleton.
 function buildSpellsPlayprob(pool) {
-  const cand = [...new Set(pool)].filter((i) => S.cards[i].t !== "land");   // unique nonland (dict.fromkeys)
+  const cnt = {};                                                          // nonland copy-count in the pool
+  const cand = [...new Set(pool)].filter((i) => S.cards[i].t !== "land");  // unique nonland, pool order (dict.fromkeys)
+  for (const i of pool) if (S.cards[i].t !== "land") cnt[i] = (cnt[i] || 0) + 1;
   if (!cand.length) return [];
   const pf = ppPoolFeats(pool);                                            // over the FULL pool (dupes count)
-  return cand.map((i, k) => ({ i, k, m: ppMargin([...ppCardFeat(i), ...pf], S.playprob) }))
+  const ranked = cand.map((i, k) => ({ i, k, m: ppMargin([...ppCardFeat(i), ...pf], S.playprob) }))
     .sort((a, b) => (b.m - a.m) || (a.k - b.k))                            // desc; stable tie-break by pool order
     .map((x) => x.i);
+  const out = [];                                                          // expand: a 2-of -> two entries
+  for (const i of ranked) for (let k = 0; k < cnt[i]; k++) out.push(i);
+  return out;
 }
 
 function seatSummary(pool) {

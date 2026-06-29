@@ -72,15 +72,21 @@ def sample_real_decks(set_code, raw_dir, n_decks, max_scan=4000):
         chunk = chunk[~chunk["draft_id"].isin(seen)].drop_duplicates("draft_id")
         seen.update(chunk["draft_id"].tolist())
         for _, row in chunk.iterrows():
-            pool = []
+            pool, deck_names, side_names = [], [], []           # the ACTUAL played deck vs sideboard, w/ multiples
             for j, nm in enumerate(names):
                 if nm in BASICS:
-                    continue                                   # skip basic lands in the pool
-                cnt = int(row[deck_cols[j]] or 0) + (int(row[side_cols[j]] or 0) if side_cols else 0)
-                pool += [nm] * cnt
+                    continue                                   # skip basic lands (manabase is inferred)
+                d = int(row[deck_cols[j]] or 0)
+                s = int(row[side_cols[j]] or 0) if side_cols else 0
+                deck_names += [nm] * d
+                side_names += [nm] * s
+                pool += [nm] * (d + s)                          # rebuild input — same order/content as before
             if len(pool) < 20:                                 # not a real pool
                 continue
-            decks.append({"label": f"real deck #{len(decks) + 1}", "pool": pool})
+            # `pool` stays for the model rebuild (unchanged); `deck`/`sideboard` let a future doctor toggle
+            # show the deck the player ACTUALLY ran, with its real spell multiples, instead of the rebuild.
+            decks.append({"label": f"real deck #{len(decks) + 1}", "pool": pool,
+                          "deck": deck_names, "sideboard": side_names})
             if len(decks) >= n_decks:
                 return decks
         if len(seen) >= max_scan:

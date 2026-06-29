@@ -112,7 +112,7 @@ function rateDeck(pool) {
   const nonland = [...new Set(pool)].filter((i) => S.cards[i].t !== "land");
   const probs = playProbs(pool, nonland);
   const onColor = (i) => (S.cards[i].ci || "").split("").every((c) => c === "C" || real.includes(c));
-  const weakIn = deck.filter((i) => (probs[i] ?? 1) < 0.5).sort((a, b) => probs[a] - probs[b]).slice(0, 3);
+  const weakIn = [...new Set(deck)].filter((i) => (probs[i] ?? 1) < 0.5).sort((a, b) => probs[a] - probs[b]).slice(0, 3);
   const strongLeft = nonland.filter((i) => !deckSet.has(i) && onColor(i) && (probs[i] ?? 0) > 0.6).sort((a, b) => probs[b] - probs[a]).slice(0, 3);
   const advice = [];
   if (real.length > 2) advice.push(`${real.length} colors (${real.join("/")}) — consider cutting to the best 2 for consistency.`);
@@ -132,13 +132,16 @@ const BASIC_LAND = { W: "Plains", U: "Island", B: "Swamp", R: "Mountain", G: "Fo
 function deckListHTML(deckIdx, lands) {
   const byCmc = {};                                          // curve view: a row per mana value, card art in it
   deckIdx.forEach((i) => { const m = Math.min(7, Math.round(S.cards[i].cmc || 0)); (byCmc[m] = byCmc[m] || []).push(i); });
-  const rows = Object.keys(byCmc).sort((a, b) => a - b).map((m) =>
-    `<div class="dcrow"><span class="cmc">${m}</span><span class="dcards">` +
-    byCmc[m].sort((a, b) => (S.cards[b].deck_value || 0) - (S.cards[a].deck_value || 0)).map((i) => {
-      const c = S.cards[i];
+  const rows = Object.keys(byCmc).sort((a, b) => a - b).map((m) => {
+    const cnt = {}; byCmc[m].forEach((i) => (cnt[i] = (cnt[i] || 0) + 1));   // collapse repeats -> ×N badge
+    const uniq = [...new Set(byCmc[m])].sort((a, b) => (S.cards[b].deck_value || 0) - (S.cards[a].deck_value || 0));
+    return `<div class="dcrow"><span class="cmc">${m}</span><span class="dcards">` +
+    uniq.map((i) => {
+      const c = S.cards[i], n = cnt[i];
       const pic = c.img ? `<img class="dcart" loading="lazy" src="${c.img}" alt="${c.name}">` : "";
-      return `<span class="dcell">${pic}<span class="dcname">${c.name}</span></span>`;   // art + exact name
-    }).join("") + `</span></div>`).join("");
+      return `<span class="dcell">${pic}<span class="dcname">${n > 1 ? `×${n} ` : ""}${c.name}</span></span>`;   // art + exact name
+    }).join("") + `</span></div>`;
+  }).join("");
   // basic-land split from the deck's colored-pip demand (eval/castability.infer_manabase, in-browser)
   const mb = inferManabase(deckIdx, lands || 17);
   const lh = CO.filter((c) => mb[c] > 0)
@@ -147,17 +150,21 @@ function deckListHTML(deckIdx, lands) {
   return `<div class="deckart">${rows}</div><div class="decklands"><b>Lands (${lands || 0}):</b> ${lh}</div>`;
 }
 
-// full-screen deck view: a mana-curve of columns (one per CMC), real card art + exact names in each
+// full-screen deck view: a mana-curve of columns (one per CMC), real card art + exact names in each.
+// `deckIdx` may carry repeats (a 2-of appears twice) — collapse to one cell per card with a ×N badge;
+// the column header count still counts copies, so the curve reflects the real card totals.
 function curveColumnsHTML(deckIdx) {
   const byCmc = {};
   deckIdx.forEach((i) => { const m = Math.min(7, Math.round(S.cards[i].cmc || 0)); (byCmc[m] = byCmc[m] || []).push(i); });
   const ms = Object.keys(byCmc).map(Number).sort((a, b) => a - b);
   return `<div class="mvcurve">` + ms.map((m) => {
-    const list = byCmc[m].sort((a, b) => (S.cards[b].deck_value || 0) - (S.cards[a].deck_value || 0));
-    return `<div class="mvcol"><div class="mvhead">${m === 7 ? "7+" : m} <small>(${list.length})</small></div>` +
-      list.map((i) => { const c = S.cards[i];
+    const col = byCmc[m], cnt = {};                                  // copies of each card in this column
+    col.forEach((i) => (cnt[i] = (cnt[i] || 0) + 1));
+    const uniq = [...new Set(col)].sort((a, b) => (S.cards[b].deck_value || 0) - (S.cards[a].deck_value || 0));
+    return `<div class="mvcol"><div class="mvhead">${m === 7 ? "7+" : m} <small>(${col.length})</small></div>` +
+      uniq.map((i) => { const c = S.cards[i], n = cnt[i];
         return `<div class="mvcard">${c.img ? `<img loading="lazy" src="${c.img}" alt="${c.name}">` : ""}` +
-          `<span>${colorPips((c.ci || "C").split("").filter((x) => x))}${c.name}</span></div>`;
+          `<span>${n > 1 ? `<b class="mult">×${n}</b> ` : ""}${colorPips((c.ci || "C").split("").filter((x) => x))}${c.name}</span></div>`;
       }).join("") + `</div>`;
   }).join("") + `</div>`;
 }

@@ -87,16 +87,28 @@ def load_play_tree_model(set_code: str, cards, n: int, webapp_dir: str = "webapp
 
 
 def deck_from_play_model(pm, pool, types, n_spells: int = 23) -> list[int]:
-    """LEARNED deckbuilder: the n_spells nonland cards most likely to be played, by P(played | pool).
+    """LEARNED deckbuilder: fill n_spells nonland slots with the most-likely-played cards, by P(played | pool),
+    KEEPING MULTIPLES — a pool with 2x Murder yields up to 2x Murder in the deck.
 
     At build time the pool is full (~45 cards), so P(played|pool) is in-distribution — it picks the deck
     a good player would build (color-coherent, on-curve) without any hand-coded color/curve heuristic.
+    Both copies of a card share the same feature vector (same P(played)), so we rank UNIQUE cards and then
+    take each one's pool-count copies in ranked order, up to n_spells (a strong 2-of can crowd out a singleton).
     """
+    from collections import Counter
+
     nonland = [c for c in dict.fromkeys(pool) if types[c] != "land"]   # unique pool cards, no lands
     if not nonland:
         return []
     probs = pm.probs(pool, nonland)
-    return [nonland[i] for i in np.argsort(-probs)[:n_spells]]
+    order = [nonland[i] for i in np.argsort(-probs)]                   # unique, ranked desc by P(played)
+    counts = Counter(c for c in pool if types[c] != "land")           # real copies in the pool
+    deck: list[int] = []
+    for c in order:
+        deck.extend([c] * min(counts[c], n_spells - len(deck)))       # take its copies, clamp at the cutoff
+        if len(deck) >= n_spells:
+            break
+    return deck
 
 
 def _load_decks(csv, manifest_path, cards):
