@@ -26,7 +26,13 @@ async function loadSet(setCode) {
   const j = (url) => fetch(url).then((r) => r.ok ? r.json() : null).catch(() => null);
   const meta = await (await fetch(`data/${setCode}.meta.json`)).json();
   const cards = (await (await fetch(`data/${setCode}.cards.json`)).json()).cards;
-  const realPacks = await j(`data/${setCode}.packs.json`);
+  let realPacks = await j(`data/${setCode}.packs.json`);
+  if (realPacks && realPacks.length) {        // real packs vary ±1 card; keep only the modal size so all
+    const cnt = {};                           // 8 packs in a round are equal -> uniform depletion, full pick count
+    realPacks.forEach((p) => (cnt[p.length] = (cnt[p.length] || 0) + 1));
+    const mode = +Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+    realPacks = realPacks.filter((p) => p.length === mode);
+  }
   const playprob = await j(`model/${setCode}.playprob.json`);      // buildability deckbuilder (P(played|pool))
   const session = await ort.InferenceSession.create(`${meta.onnx}`, { executionProviders: ["wasm"] });
   const sampleDecks = await j(`data/${setCode}.sampledecks.json`); // real 17lands decks for the doctor
