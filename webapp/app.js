@@ -266,7 +266,7 @@ function finishDraft() {
 
   $("summaryPanel").hidden = false;
   const deckCards = (typeof deckListHTML === "function" && you.spells)
-    ? `<details class="ddeck" open><summary>Your deck — ${you.nSpells} spells + ${you.lands} lands</summary>${deckListHTML(you.spells)}</details>` : "";
+    ? `<details class="ddeck" open><summary>Your deck — ${you.nSpells} spells + ${you.lands} lands</summary>${deckListHTML(you.spells, you.lands)}</details>` : "";
   $("summary").innerHTML =
     `<div class="row"><span>Your deck (best ${you.nSpells} spells + ${you.lands} lands)</span><b>${you.avg.toFixed(3)}</b></div>` +
     deckCards +

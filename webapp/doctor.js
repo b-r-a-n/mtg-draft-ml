@@ -127,14 +127,24 @@ function rateDeck(pool) {
 
 // ---- UI -----------------------------------------------------------------------------------------
 // the built deck, grouped by mana value (a curve view), with each card's color + deck_value
-function deckListHTML(deckIdx) {
-  const byCmc = {};
+const BASIC_LAND = { W: "Plains", U: "Island", B: "Swamp", R: "Mountain", G: "Forest" };
+
+function deckListHTML(deckIdx, lands) {
+  const byCmc = {};                                          // curve view: a row per mana value, card art in it
   deckIdx.forEach((i) => { const m = Math.min(7, Math.round(S.cards[i].cmc || 0)); (byCmc[m] = byCmc[m] || []).push(i); });
-  return Object.keys(byCmc).sort((a, b) => a - b).map((m) =>
-    `<div class="dcmc"><span class="cmc">${m}</span>` +
-    byCmc[m].sort((a, b) => (S.cards[b].deck_value || 0) - (S.cards[a].deck_value || 0)).map((i) =>
-      `<span class="dcard">${colorPips((S.cards[i].ci || "C").split("").filter((x) => x))}${S.cards[i].name}</span>`).join("") +
-    `</div>`).join("");
+  const rows = Object.keys(byCmc).sort((a, b) => a - b).map((m) =>
+    `<div class="dcrow"><span class="cmc">${m}</span><span class="dcards">` +
+    byCmc[m].sort((a, b) => (S.cards[b].deck_value || 0) - (S.cards[a].deck_value || 0)).map((i) => {
+      const c = S.cards[i];
+      return c.img ? `<img class="dcart" loading="lazy" src="${c.img}" alt="${c.name}" title="${c.name}">`
+        : `<span class="dcard">${colorPips((c.ci || "C").split("").filter((x) => x))}${c.name}</span>`;
+    }).join("") + `</span></div>`).join("");
+  // basic-land split from the deck's colored-pip demand (eval/castability.infer_manabase, in-browser)
+  const mb = inferManabase(deckIdx, lands || 17);
+  const lh = CO.filter((c) => mb[c] > 0)
+    .map((c) => `<span class="lrow"><span class="pip c${c}"></span>${mb[c]} ${BASIC_LAND[c]}</span>`).join("")
+    || `${lands || 0} colorless`;
+  return `<div class="deckart">${rows}</div><div class="decklands"><b>Lands (${lands || 0}):</b> ${lh}</div>`;
 }
 
 function renderDoctor(pool) {
@@ -149,7 +159,7 @@ function renderDoctor(pool) {
     `<div class="drow">coherence ${bar(r.coherence)} <small>${r.coherence.toFixed(2)}</small></div>` +
     `<div class="dturns">on-curve by turn: ${pc}</div>` +
     `<ul class="dadvice">${r.advice.map((a) => `<li>${a}</li>`).join("")}</ul>` +
-    `<details class="ddeck" open><summary>the deck (${r.deck.length} spells + ${r.lands} lands)</summary>${deckListHTML(r.deck)}</details>`;
+    `<details class="ddeck" open><summary>the deck (${r.deck.length} spells + ${r.lands} lands)</summary>${deckListHTML(r.deck, r.lands)}</details>`;
 }
 
 function resolveDeckNames(names) {                // card names -> indices (with multiples)

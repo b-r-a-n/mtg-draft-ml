@@ -110,3 +110,13 @@ table.breakdown .pip { width: 11px; height: 11px; vertical-align: middle; }
 .legend b { color: #cde; }
 .legend .pos { color: #7ed957; } .legend .neg { color: #ff7a7a; }
 .legend .syn { position: static; }
+
+/* card-art deck view (curve rows) + basic-land split */
+.deckart { margin: 6px 0; }
+.dcrow { display: flex; align-items: flex-start; gap: 6px; margin: 4px 0; }
+.dcrow .cmc { min-width: 14px; text-align: center; color: #7ed957; font-weight: 600; padding-top: 16px; flex: none; }
+.dcards { display: flex; flex-wrap: wrap; gap: 4px; }
+.dcart { width: 46px; border-radius: 3px; display: block; }
+.dcart:hover { outline: 2px solid #5b8def; }
+.decklands { font-size: 12px; color: #cde; margin-top: 6px; }
+.decklands .lrow { margin-right: 12px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
