@@ -136,8 +136,8 @@ function deckListHTML(deckIdx, lands) {
     `<div class="dcrow"><span class="cmc">${m}</span><span class="dcards">` +
     byCmc[m].sort((a, b) => (S.cards[b].deck_value || 0) - (S.cards[a].deck_value || 0)).map((i) => {
       const c = S.cards[i];
-      return c.img ? `<img class="dcart" loading="lazy" src="${c.img}" alt="${c.name}" title="${c.name}">`
-        : `<span class="dcard">${colorPips((c.ci || "C").split("").filter((x) => x))}${c.name}</span>`;
+      const pic = c.img ? `<img class="dcart" loading="lazy" src="${c.img}" alt="${c.name}">` : "";
+      return `<span class="dcell">${pic}<span class="dcname">${c.name}</span></span>`;   // art + exact name
     }).join("") + `</span></div>`).join("");
   // basic-land split from the deck's colored-pip demand (eval/castability.infer_manabase, in-browser)
   const mb = inferManabase(deckIdx, lands || 17);
@@ -147,20 +147,45 @@ function deckListHTML(deckIdx, lands) {
   return `<div class="deckart">${rows}</div><div class="decklands"><b>Lands (${lands || 0}):</b> ${lh}</div>`;
 }
 
-function renderDoctor(pool) {
+// full-screen deck view: a mana-curve of columns (one per CMC), real card art + exact names in each
+function curveColumnsHTML(deckIdx) {
+  const byCmc = {};
+  deckIdx.forEach((i) => { const m = Math.min(7, Math.round(S.cards[i].cmc || 0)); (byCmc[m] = byCmc[m] || []).push(i); });
+  const ms = Object.keys(byCmc).map(Number).sort((a, b) => a - b);
+  return `<div class="mvcurve">` + ms.map((m) => {
+    const list = byCmc[m].sort((a, b) => (S.cards[b].deck_value || 0) - (S.cards[a].deck_value || 0));
+    return `<div class="mvcol"><div class="mvhead">${m === 7 ? "7+" : m} <small>(${list.length})</small></div>` +
+      list.map((i) => { const c = S.cards[i];
+        return `<div class="mvcard">${c.img ? `<img loading="lazy" src="${c.img}" alt="${c.name}">` : ""}` +
+          `<span>${colorPips((c.ci || "C").split("").filter((x) => x))}${c.name}</span></div>`;
+      }).join("") + `</div>`;
+  }).join("") + `</div>`;
+}
+
+function deckLandsHTML(deckIdx, lands) {            // exact basic-land split (keeps 1-of splashes)
+  const mb = inferManabase(deckIdx, lands || 17);
+  const lh = CO.filter((c) => mb[c] > 0)
+    .map((c) => `<span class="lrow"><span class="pip c${c}"></span><b>${mb[c]}</b> ${BASIC_LAND[c]}</span>`).join("")
+    || `${lands || 0} colorless`;
+  return `<div class="decklands"><b>Lands (${lands || 0}):</b> ${lh}</div>`;
+}
+
+function openDeckModal(pool, label) {
   const r = rateDeck(pool);
   const bar = (x) => `<span class="dbar"><span style="width:${Math.round(x * 100)}%"></span></span>`;
   const pc = Object.entries(r.perTurn).map(([t, p]) => `T${t}:${p.toFixed(2)}`).join("  ");
-  $("doctorReport").innerHTML =
-    `<div class="drow"><b>Grade ${r.grade}</b> <small>(${r.overall.toFixed(2)})</small>` +
-    `<span class="dmeta">${r.deck.length} spells + ${r.lands} lands · ${r.colors.join("/") || "—"} · avg cmc ${r.avgCmc.toFixed(1)}</span></div>` +
-    `<div class="drow">power ${bar(r.powerPct)} <small>${Math.round(r.powerPct * 100)}th pct</small></div>` +
-    `<div class="drow">castability ${bar(r.cast)} <small>${r.cast.toFixed(2)}</small></div>` +
-    `<div class="drow">coherence ${bar(r.coherence)} <small>${r.coherence.toFixed(2)}</small></div>` +
+  $("deckModalBody").innerHTML =
+    `<div class="deckhead"><h2>Deck doctor${label ? " — " + label : ""} · grade ${r.grade} <small>(${r.overall.toFixed(2)})</small></h2>` +
+    `<div class="dmeta">${r.deck.length} spells + ${r.lands} lands · ${r.colors.join("/") || "—"} · avg cmc ${r.avgCmc.toFixed(1)}</div>` +
+    `<div class="dscores"><span>power ${bar(r.powerPct)} ${Math.round(r.powerPct * 100)}th</span>` +
+    `<span>castability ${bar(r.cast)} ${r.cast.toFixed(2)}</span><span>coherence ${bar(r.coherence)} ${r.coherence.toFixed(2)}</span></div>` +
+    deckLandsHTML(r.deck, r.lands) +
     `<div class="dturns">on-curve by turn: ${pc}</div>` +
-    `<ul class="dadvice">${r.advice.map((a) => `<li>${a}</li>`).join("")}</ul>` +
-    `<details class="ddeck" open><summary>the deck (${r.deck.length} spells + ${r.lands} lands)</summary>${deckListHTML(r.deck, r.lands)}</details>`;
+    `<ul class="dadvice">${r.advice.map((a) => `<li>${a}</li>`).join("")}</ul></div>` +
+    curveColumnsHTML(r.deck);
+  $("deckModal").hidden = false;
 }
+function closeDeckModal() { const m = $("deckModal"); if (m) m.hidden = true; }
 
 function resolveDeckNames(names) {                // card names -> indices (with multiples)
   const byName = {}; S.cards.forEach((c) => (byName[c.name.toLowerCase()] = c.i));
@@ -169,14 +194,22 @@ function resolveDeckNames(names) {                // card names -> indices (with
 
 function initDoctor() {
   const sel = $("deckPick"); if (!sel) return;
-  const opts = ['<option value="">— pick a deck —</option>'];
+  const opts = ['<option value="">— pick a deck → full-screen view —</option>'];
   if (S.seats && S.seats[HUMAN] && S.seats[HUMAN].pool.length) opts.push('<option value="__yours">Your drafted deck</option>');
   (S.sampleDecks || []).forEach((d, k) => opts.push(`<option value="${k}">${d.label} (${d.pool.length} cards)</option>`));
   sel.innerHTML = opts.join("");
   sel.onchange = () => {
     const v = sel.value;
-    if (v === "") { $("doctorReport").innerHTML = ""; return; }
+    if (v === "") return;
     const pool = v === "__yours" ? S.seats[HUMAN].pool : resolveDeckNames(S.sampleDecks[+v].pool);
-    renderDoctor(pool);
+    openDeckModal(pool, v === "__yours" ? "your deck" : S.sampleDecks[+v].label);
+    sel.value = "";                                // reset so the same deck can be re-opened
   };
+  const m = $("deckModal");
+  if (m && !m._wired) {                            // wire the modal close once
+    m._wired = true;
+    $("deckClose").onclick = closeDeckModal;
+    m.onclick = (e) => { if (e.target === m) closeDeckModal(); };
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDeckModal(); });
+  }
 }
