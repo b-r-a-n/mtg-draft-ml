@@ -93,10 +93,13 @@ function playProbs(pool, cand) {
 }
 const gradeOf = (x) => (x >= 0.85 ? "A" : x >= 0.72 ? "B" : x >= 0.58 ? "C" : x >= 0.45 ? "D" : "F");
 
-function rateDeck(pool) {
-  const ranked = buildSpellsPlayprob(pool);                       // P(played)-ranked nonland (app.js)
+// `fixedDeck` (optional): nonland spell indices WITH multiples to rate AS-IS — the deck the player
+// ACTUALLY ran (from the baked deck_ list). When omitted, build the deck from the pool via P(played|pool).
+function rateDeck(pool, fixedDeck) {
+  const actual = fixedDeck && fixedDeck.length ? fixedDeck.filter((i) => S.cards[i].t !== "land") : null;
+  const ranked = actual || buildSpellsPlayprob(pool);             // P(played)-ranked nonland (app.js), or as-run
   const { lands, avgCmc } = recommendLands(ranked.slice(0, 23).map((i) => S.cards[i].cmc || 0));
-  const deck = ranked.slice(0, 40 - lands), deckSet = new Set(deck);
+  const deck = actual ? actual : ranked.slice(0, 40 - lands), deckSet = new Set(deck);
   const dv = deck.map((i) => S.cards[i].deck_value).filter((v) => v != null);
   const powerMean = dv.length ? dv.reduce((a, b) => a + b, 0) / dv.length : 0;
   const setDv = S.cards.filter((c) => c.t !== "land" && c.deck_value != null).map((c) => c.deck_value);
@@ -177,20 +180,34 @@ function deckLandsHTML(deckIdx, lands) {            // exact basic-land split (k
   return `<div class="decklands"><b>Lands (${lands || 0}):</b> ${lh}</div>`;
 }
 
-function openDeckModal(pool, label) {
-  const r = rateDeck(pool);
+// `actualSpells` (optional): nonland indices WITH multiples = the deck the player actually ran. When given,
+// a toggle lets you compare it to the model's rebuild; we default to showing the actual played deck.
+function openDeckModal(pool, label, actualSpells) {
+  S._deckModal = { pool, label, actualSpells: actualSpells && actualSpells.length ? actualSpells : null };
+  renderDeckModal(S._deckModal.actualSpells ? "actual" : "model");
+  $("deckModal").hidden = false;
+}
+function renderDeckModal(mode) {
+  const st = S._deckModal; if (!st) return;
+  const fixed = mode === "actual" ? st.actualSpells : null;
+  const r = rateDeck(st.pool, fixed);
   const bar = (x) => `<span class="dbar"><span style="width:${Math.round(x * 100)}%"></span></span>`;
   const pc = Object.entries(r.perTurn).map(([t, p]) => `T${t}:${p.toFixed(2)}`).join("  ");
+  const toggle = st.actualSpells                            // only real decks carry an as-run list
+    ? `<div class="dtoggle"><button class="${mode === "actual" ? "on" : ""}" onclick="renderDeckModal('actual')">actual played</button>` +
+      `<button class="${mode === "model" ? "on" : ""}" onclick="renderDeckModal('model')">model rebuild</button></div>`
+    : "";
   $("deckModalBody").innerHTML =
-    `<div class="deckhead"><h2>Deck doctor${label ? " — " + label : ""} · grade ${r.grade} <small>(${r.overall.toFixed(2)})</small></h2>` +
-    `<div class="dmeta">${r.deck.length} spells + ${r.lands} lands · ${r.colors.join("/") || "—"} · avg cmc ${r.avgCmc.toFixed(1)}</div>` +
+    `<div class="deckhead"><h2>Deck doctor${st.label ? " — " + st.label : ""} · grade ${r.grade} <small>(${r.overall.toFixed(2)})</small></h2>` +
+    toggle +
+    `<div class="dmeta">${r.deck.length} spells + ${r.lands} lands · ${r.colors.join("/") || "—"} · avg cmc ${r.avgCmc.toFixed(1)}` +
+    `${st.actualSpells ? ` · <em>${mode === "actual" ? "the deck as played" : "rebuilt from the pool"}</em>` : ""}</div>` +
     `<div class="dscores"><span>power ${bar(r.powerPct)} ${Math.round(r.powerPct * 100)}th</span>` +
     `<span>castability ${bar(r.cast)} ${r.cast.toFixed(2)}</span><span>coherence ${bar(r.coherence)} ${r.coherence.toFixed(2)}</span></div>` +
     deckLandsHTML(r.deck, r.lands) +
     `<div class="dturns">on-curve by turn: ${pc}</div>` +
     `<ul class="dadvice">${r.advice.map((a) => `<li>${a}</li>`).join("")}</ul></div>` +
     curveColumnsHTML(r.deck);
-  $("deckModal").hidden = false;
 }
 function closeDeckModal() { const m = $("deckModal"); if (m) m.hidden = true; }
 
@@ -208,8 +225,13 @@ function initDoctor() {
   sel.onchange = () => {
     const v = sel.value;
     if (v === "") return;
-    const pool = v === "__yours" ? S.seats[HUMAN].pool : resolveDeckNames(S.sampleDecks[+v].pool);
-    openDeckModal(pool, v === "__yours" ? "your deck" : S.sampleDecks[+v].label);
+    if (v === "__yours") {
+      openDeckModal(S.seats[HUMAN].pool, "your deck");        // no as-run list for an in-progress draft
+    } else {
+      const d = S.sampleDecks[+v];
+      const actual = d.deck ? resolveDeckNames(d.deck) : null; // the spells the player actually ran (w/ multiples)
+      openDeckModal(resolveDeckNames(d.pool), d.label, actual);
+    }
     sel.value = "";                                // reset so the same deck can be re-opened
   };
   const m = $("deckModal");

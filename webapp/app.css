@@ -128,6 +128,10 @@ table.breakdown .pip { width: 11px; height: 11px; vertical-align: middle; }
 .modalx:hover { background: #3a4150; }
 .deckhead { max-width: 900px; margin: 0 auto 14px; }
 .deckhead h2 { margin: 4px 0 8px; font-size: 19px; }
+.dtoggle { display: inline-flex; gap: 0; margin: 0 0 8px; border-radius: 7px; overflow: hidden; border: 1px solid #3a4150; }
+.dtoggle button { padding: 5px 12px; background: #232833; color: #9aa; border: none; cursor: pointer; font-size: 12px; }
+.dtoggle button.on { background: #5b8def; color: #fff; }
+.dtoggle button:not(.on):hover { background: #2d3340; }
 .deckhead .dmeta { color: #9aa; font-size: 13px; margin-bottom: 8px; }
 .dscores { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: #cde; align-items: center; margin-bottom: 8px; }
 .dscores span { display: inline-flex; align-items: center; gap: 6px; }
