@@ -108,6 +108,13 @@ context · pack vecs ─► masked softmax over the pack ─► pick     (+ deck
 
 ## Bottom line
 
+> **⚠ 2026-07-03 update:** a review found two of the three "walls" below were measured with a noisy
+> ruler (`deck_value` split-half ρ=0.644 on 150k-game samples) or against a confounded proxy
+> (WR-agreement:GIH), and the highest-leverage representation mitigation (interaction-tuned /
+> modern text encoder) was never run. The modeling track is **re-opened** —
+> see [`breakthrough-plan.md`](breakthrough-plan.md) for the re-adjudication plan and its gates.
+> The paragraphs below record the pre-review conclusion.
+
 The research arc is **complete**: the pick model is at its characterized ceilings (top-1 ≈0.58 human
 noise; WR-agreement ≈0.326 corpus-breadth ceiling, **beating average human**), it drafts **outcome-better
 decks than humans**, the curve question is **resolved** (real-but-small, build-time), and the best recipe
