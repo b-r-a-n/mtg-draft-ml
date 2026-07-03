@@ -58,10 +58,11 @@ WS1 is cheap and its results change whether WS3/WS4 are worth doing at all.
 skill controls (`on_play, num_mulligans, user_game_win_rate_bucket`) are already in
 (`src/mtg_draft_ml/data/game_preprocess.py::DEFAULT_CONTROLS`). This is purely a reliability play.
 
-- [ ] **WS1.1 — Rebuild β on full game_data for the 8 webapp sets.**
+- [x] **WS1.1 — Rebuild β on full game_data for the 8 webapp sets.** *(2026-07-03 — gate PASSED: mean split-half ρ 0.860 (was 0.644), all 8 sets ≥ 0.815; see [results/full-data-deck-value.md])*
   - `src/mtg_draft_ml/data/download.py::download_17lands_game` already supports full downloads
-    (`sample_rows=None`). Full CSVs are large (up to ~5 GB gz each) — run on a CPU pod with
-    ≥200 GB disk, one set at a time, delete each raw CSV after the npz cache is built.
+    (`sample_rows=None`). Full CSVs are small (~60–100 MB gz each, ~625 MB for all 8 — the
+    "~5 GB each" fear was ~50× off); a local run takes ~20 min end-to-end, no pod needed.
+    Delete each raw CSV after the npz cache is built.
   - Extend `scripts/game_value_build.py` to accept `--sample-rows 0` = full (it currently defaults
     to 150 000). Keep `--l2 30` (flat in [1,1000], [results/game-data-value-model.md]).
   - Memory check: X is [n_games × n_cards] float32; 2 M games × 300 cards ≈ 2.4 GB — fine. The fit

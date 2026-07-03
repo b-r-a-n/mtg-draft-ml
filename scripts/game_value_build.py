@@ -11,7 +11,7 @@ Validation per set: face-plausibility (top/bottom cards), correlation vs that se
 the signal-vs-noise check). Across sets: **reprint consistency** (cards in >=2 sets — do they get a
 similar deck_value?). This is CPU/network work — no GPU needed.
 
-    uv run python scripts/game_value_build.py --sample-rows 150000 --l2 30
+    uv run python scripts/game_value_build.py --sample-rows 150000 --l2 30   # --sample-rows 0 = full CSV
 """
 from __future__ import annotations
 
@@ -48,8 +48,11 @@ def build_set(set_code, event_type, sample_rows, l2, hf_dir, raw_dir, cache_dir,
     manifest = _resolve_manifest(pathlib.Path(hf_dir) / "manifests", tag)
     ratings = pathlib.Path(hf_dir) / "ratings" / f"{tag}.ratings.json"
 
-    csv = download_17lands_game(set_code, event_type, raw_dir, sample_rows=sample_rows)
-    npz = pathlib.Path(cache_dir) / f"game.{tag}.sample{sample_rows}.npz"
+    full = sample_rows <= 0  # --sample-rows 0 => the full game_data CSV
+    csv = download_17lands_game(set_code, event_type, raw_dir,
+                                sample_rows=None if full else sample_rows)
+    npz = pathlib.Path(cache_dir) / (f"game.{tag}.full.npz" if full
+                                     else f"game.{tag}.sample{sample_rows}.npz")
     data = preprocess_game_set(csv, manifest, out_npz=npz)
     X, y, C = data["X"], data["y"], data["C"]
     card_names = list(data["card_names"])
@@ -119,7 +122,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--sets", default=",".join(DEFAULT_SETS))
     ap.add_argument("--event", dest="event_type", default="PremierDraft")
-    ap.add_argument("--sample-rows", type=int, default=150_000)
+    ap.add_argument("--sample-rows", type=int, default=150_000,
+                    help="rows per set; <=0 = full game_data CSV")
     ap.add_argument("--l2", type=float, default=30.0)
     ap.add_argument("--hf-dir", default="data/hf")
     ap.add_argument("--raw-dir", default="data/raw")
@@ -129,7 +133,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     sets = [s.strip() for s in a.sets.split(",")]
-    print(f"Building game_data value field for {len(sets)} sets (sample={a.sample_rows}, l2={a.l2})")
+    sample_label = "full" if a.sample_rows <= 0 else a.sample_rows
+    print(f"Building game_data value field for {len(sets)} sets (sample={sample_label}, l2={a.l2})")
     summaries = []
     for s in sets:
         try:
@@ -152,7 +157,8 @@ def main(argv=None):
     out = pathlib.Path(a.summary)
     out.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "sample_rows": a.sample_rows, "l2": a.l2, "event": a.event_type,
+        "sample_rows": 0 if a.sample_rows <= 0 else a.sample_rows,  # 0 = full CSV
+        "l2": a.l2, "event": a.event_type,
         "sets": [{k: v for k, v in s.items() if k != "value_by_name"} for s in summaries],
         "split_half_rho_mean": float(np.mean(rhos)),
         "spearman_iwd_mean": float(np.mean(iwd)), "reprint_consistency": rep,

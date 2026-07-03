@@ -176,6 +176,12 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
   (face-plausible, split-half ρ 0.64, on HF); **Step 2 (4-seed)** = `deck_value` is a **better target**
   (top-1 +0.009, value-agree +0.023 4/4) but the single-seed **GIH-ceiling-break did NOT hold up**
   (+0.007, 3/4, within noise). Decisive test still owed: outcome eval (estimated deck-WR).
+- [full-data-deck-value.md](full-data-deck-value.md) — **WS1.1: β rebuilt on FULL game_data**
+  (0.77–1.25M games/set, 5–8× the 150k samples; ~20 min locally — the plan's "~5 GB CSVs, use a pod"
+  was ~50× off). **Gate PASSED**: mean split-half ρ **0.644 → 0.860** (every set ≥ 0.815), reprint
+  cross-set ρ 0.867 with spread halved (0.048 → 0.0225); Sp(β,IWD) 0.709 (still its own signal).
+  Webapp dial + HF refreshed (old↔new dial Spearman 0.85–0.93, +20–40 rated cards/set); WS1.2 must
+  refit from `game.<SET>.PremierDraft.full.npz`.
 - [distillation.md](distillation.md) — soft-label KD: ensemble / WR-softmax / leaky-feature (DD-004).
 - [good-players.md](good-players.md) — skill-filtered training + the volume-matched control.
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the

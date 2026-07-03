@@ -1,0 +1,110 @@
+{
+  "sample_rows": 0,
+  "l2": 30.0,
+  "event": "PremierDraft",
+  "sets": [
+    {
+      "set": "BLB",
+      "n_games": 931230,
+      "n_valued": 270,
+      "win_rate": 0.5460251569747925,
+      "train_acc": 0.5947725176811218,
+      "spearman_iwd": 0.774436090225564,
+      "spearman_gih": 0.8871632339854785,
+      "spearman_iwd_well": 0.774436090225564,
+      "split_half_rho": 0.8904810460744012,
+      "out": "data/hf/gamevalue/BLB.PremierDraft.gamevalue.json"
+    },
+    {
+      "set": "OTJ",
+      "n_games": 1172393,
+      "n_valued": 370,
+      "win_rate": 0.5414191484451294,
+      "train_acc": 0.5873977541923523,
+      "spearman_iwd": 0.6942263216235819,
+      "spearman_gih": 0.7876758849914661,
+      "spearman_iwd_well": 0.6942263216235819,
+      "split_half_rho": 0.8605539732092884,
+      "out": "data/hf/gamevalue/OTJ.PremierDraft.gamevalue.json"
+    },
+    {
+      "set": "WOE",
+      "n_games": 1024028,
+      "n_valued": 305,
+      "win_rate": 0.552005410194397,
+      "train_acc": 0.5920131206512451,
+      "spearman_iwd": 0.6497485527616973,
+      "spearman_gih": 0.7854442827142524,
+      "spearman_iwd_well": 0.6497485527616973,
+      "split_half_rho": 0.8383909387741291,
+      "out": "data/hf/gamevalue/WOE.PremierDraft.gamevalue.json"
+    },
+    {
+      "set": "MKM",
+      "n_games": 964377,
+      "n_valued": 301,
+      "win_rate": 0.5497984886169434,
+      "train_acc": 0.5927619338035583,
+      "spearman_iwd": 0.7191456479592072,
+      "spearman_gih": 0.8056312090210395,
+      "spearman_iwd_well": 0.7191456479592072,
+      "split_half_rho": 0.8362931508657677,
+      "out": "data/hf/gamevalue/MKM.PremierDraft.gamevalue.json"
+    },
+    {
+      "set": "DSK",
+      "n_games": 1011949,
+      "n_valued": 277,
+      "win_rate": 0.5448189377784729,
+      "train_acc": 0.5892994403839111,
+      "spearman_iwd": 0.7637022734157528,
+      "spearman_gih": 0.8257685986685335,
+      "spearman_iwd_well": 0.7637022734157528,
+      "split_half_rho": 0.9092114787215902,
+      "out": "data/hf/gamevalue/DSK.PremierDraft.gamevalue.json"
+    },
+    {
+      "set": "LCI",
+      "n_games": 823614,
+      "n_valued": 288,
+      "win_rate": 0.5533526539802551,
+      "train_acc": 0.5995539426803589,
+      "spearman_iwd": 0.7141748317133838,
+      "spearman_gih": 0.7889198207060572,
+      "spearman_iwd_well": 0.7141748317133838,
+      "split_half_rho": 0.8547265391091876,
+      "out": "data/hf/gamevalue/LCI.PremierDraft.gamevalue.json"
+    },
+    {
+      "set": "MH3",
+      "n_games": 767772,
+      "n_valued": 314,
+      "win_rate": 0.5509591102600098,
+      "train_acc": 0.597505509853363,
+      "spearman_iwd": 0.6230448353460425,
+      "spearman_gih": 0.75318205458079,
+      "spearman_iwd_well": 0.6230448353460425,
+      "split_half_rho": 0.814965488036854,
+      "out": "data/hf/gamevalue/MH3.PremierDraft.gamevalue.json"
+    },
+    {
+      "set": "MOM",
+      "n_games": 1246850,
+      "n_valued": 346,
+      "win_rate": 0.547566294670105,
+      "train_acc": 0.5923896431922913,
+      "spearman_iwd": 0.7358584925678677,
+      "spearman_gih": 0.7887558563248309,
+      "spearman_iwd_well": 0.7358584925678677,
+      "split_half_rho": 0.8726889657734809,
+      "out": "data/hf/gamevalue/MOM.PremierDraft.gamevalue.json"
+    }
+  ],
+  "split_half_rho_mean": 0.8596639475705874,
+  "spearman_iwd_mean": 0.7092921307016371,
+  "reprint_consistency": {
+    "n_reprints": 9,
+    "spread_mean": 0.022499991978596274,
+    "corr_first_pair": 0.8666666666666667
+  }
+}
