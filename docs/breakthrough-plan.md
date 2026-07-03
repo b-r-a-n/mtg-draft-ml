@@ -42,8 +42,8 @@ WS1 is cheap and its results change whether WS3/WS4 are worth doing at all.
 - **Headline metric: the outcome eval** — replay held-out drafts, score each policy's pool with the
   deck-value model (`scripts/run_outcome_eval.py`, prefer `--build playprob`). It is non-circular
   (GIH-trained, deck_value-scored) and still has room to register gains.
-  Current baseline: model beats humans **+0.049 est. deck-WR (84% of drafts)** with the playprob
-  builder; +0.063 (95%) with top-23 ([results/outcome-eval.md]). **Re-baseline after WS1.2.**
+  Current baseline: model beats humans **+0.0567 est. deck-WR (92% of drafts)** with the playprob
+  builder; +0.0717 (98%) with top-23 ([results/ws12-rebaseline.md]).
 - **Secondary:** WR-agreement vs GIH (human ref 0.298, model 0.3251±0.0044 on nested19) and
   rotated-LOSO top-1 (honest **0.5405±0.0229**, range 0.510–0.575 by holdout set).
 - Report all three; never claim a win on the secondary metrics alone.
@@ -74,7 +74,7 @@ skill controls (`on_play, num_mulligans, user_game_win_rate_bucket`) are already
   - **Gate: mean split-half ρ ≥ 0.80** (was 0.644) and reprint cross-set ρ ≥ 0.86 (was 0.86).
     Report the same table as [results/game-data-value-model.md] Step 1. If full data does NOT
     reach ρ≥0.80, report the achieved curve (ρ vs n_games) — that itself bounds WS1.3/1.4.
-- [ ] **WS1.2 — Re-baseline the outcome eval with the new β.**
+- [x] **WS1.2 — Re-baseline the outcome eval with the new β.** *(2026-07-03 — new baselines: playprob +0.0567/92%, top-23 +0.0717/98% (full-β, current net); June verdict survives; see [results/ws12-rebaseline.md])*
   - Rerun `scripts/run_outcome_eval.py --build playprob` (and the top-23 build) on the same
     held-out drafts as [results/outcome-eval.md], scoring with full-data β.
   - Deliverable: the new "model vs human" margins (old-β baselines: +0.049/84% playprob,

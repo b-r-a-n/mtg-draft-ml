@@ -182,6 +182,12 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
   cross-set ρ 0.867 with spread halved (0.048 → 0.0225); Sp(β,IWD) 0.709 (still its own signal).
   Webapp dial + HF refreshed (old↔new dial Spearman 0.85–0.93, +20–40 rated cards/set); WS1.2 must
   refit from `game.<SET>.PremierDraft.full.npz`.
+- [ws12-rebaseline.md](ws12-rebaseline.md) — **WS1.2: outcome eval re-baselined on full-data β**
+  (2×2 build × β, same 800 DSK drafts, current deployed net). **New official baselines: playprob
+  +0.0567 (92%), naive top-23 +0.0717 (98%)** — the June verdict survives the reliable ruler. The
+  noisy β had inflated the self-referential policies most (deckvalue_greedy −0.02 of margin under
+  full-β vs the model's −0.005, winner's curse); most of the June→now margin growth is the big-net
+  upgrade, and de-noising *raises* the playprob beat-rate 90→92% despite a smaller mean margin.
 - [distillation.md](distillation.md) — soft-label KD: ensemble / WR-softmax / leaky-feature (DD-004).
 - [good-players.md](good-players.md) — skill-filtered training + the volume-matched control.
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the
