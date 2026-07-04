@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 
 import torch
 
@@ -34,6 +35,11 @@ from mtg_draft_ml.eval.generalization import evaluate_on_set, novel_mask_for_hol
 from mtg_draft_ml.eval.winrate import align_winrates, composite_card_quality
 from mtg_draft_ml.training.train import pick_device
 from mtg_draft_ml.training.train_content import train_loop
+
+# Fixed export shapes used when --export-onnx-dir is set.
+# pool = up to 45 cards (3 packs × 15 picks); pack = 15 cards.
+_ONNX_MAX_POOL = 45
+_ONNX_MAX_PACK = 15
 
 D = "data/hf"
 SIZE = "60000"
@@ -84,6 +90,9 @@ def main(argv=None):
     ap.add_argument("--seeds", default="0")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--out-json", default="data/game_value_target_DSK.json")
+    ap.add_argument("--export-onnx-dir", default=None, metavar="DIR",
+                    help="if set, export each trained arm to ONNX at DIR/<arm-slug>.seed<seed>.onnx "
+                         "and write DIR/meta.json with model config")
     a = ap.parse_args(argv)
 
     merged_dir = "data/ratings_merged"
@@ -92,6 +101,10 @@ def main(argv=None):
     targets = [t.strip() for t in a.targets.split(",")]
     seeds = [int(s) for s in a.seeds.split(",")]
     skill = {"min_winrate": a.min_winrate, "min_games": a.min_games, "ranks": None}
+
+    onnx_dir = pathlib.Path(a.export_onnx_dir) if a.export_onnx_dir else None
+    if onnx_dir is not None:
+        onnx_dir.mkdir(parents=True, exist_ok=True)
 
     train_specs = [spec(s, merged_dir) for s in train_sets]
     hold = spec(a.holdout, merged_dir)
@@ -129,6 +142,11 @@ def main(argv=None):
         extra = (dict(teacher=teacher, distill_lambda=a.distill_lambda, distill_temp=a.distill_temp)
                  if teacher is not None else {})
         train_loop(m, tdl, vdl, dev, tag=arm, ckpt_prefix=arm, **common, **extra)
+        if onnx_dir is not None:
+            slug = _arm_slug(arm)
+            onnx_path = onnx_dir / f"{slug}.seed{seed}.onnx"
+            _export_onnx(m, hmat, onnx_path)
+            _write_meta(onnx_dir, a, train_sets)
         return m
 
     def evaluate(m):
@@ -181,6 +199,112 @@ def _aggregate(runs):
             if len(vals) > 1:
                 agg[name][k + "_std"] = statistics.pstdev(vals)
     return agg
+
+
+def _arm_slug(arm: str) -> str:
+    """Convert an arm name to a filesystem-safe slug.
+
+    Examples:
+        "good_base"       -> "good_base"
+        "good_comp_+value" -> "good_comp_plusvalue"
+        "good_comp:gih"   -> "good_comp_gih"
+    """
+    s = arm.replace("+", "plus")
+    s = re.sub(r"[^A-Za-z0-9_\-]", "_", s)
+    s = re.sub(r"_+", "_", s).strip("_")
+    return s
+
+
+def _export_onnx(model, holdout_mat: "np.ndarray", path: pathlib.Path) -> None:
+    """Export `model` to ONNX at `path` with the HOLDOUT set's content table baked in.
+
+    Mirrors export_webapp._export_onnx (scripts/export_webapp.py:163) exactly:
+      - Retargets the content buffer to `holdout_mat` so card indices in the graph are
+        HOLDOUT-set indices (e.g. DSK card indices matching webapp/data/DSK.cards.json `i`).
+      - Fixed MAX_POOL/MAX_PACK shapes; only the batch axis is dynamic.
+      - Inputs: pool int64[B,45], pool_mask bool[B,45], pack int64[B,15], pack_mask bool[B,15]
+      - Output: logits float32[B,15]
+      - No wrapper needed — ContentDraftModel.forward() already takes index inputs.
+      - Runs the padding-inertness check after export (mirrors export_webapp:176).
+    The original model's device, training state, and content table are restored after export.
+    """
+    import copy
+    import numpy as np
+
+    orig_training = model.training
+    orig_content = model.content.clone()
+    orig_device = orig_content.device
+
+    # Deep-copy to CPU; retarget to the holdout set's content table.
+    cpu_model = copy.deepcopy(model).eval().to("cpu")
+    cpu_model.set_content(torch.from_numpy(holdout_mat))   # bake DSK indices into graph
+
+    # Fixed-shape export — mirrors export_webapp._export_onnx (scripts/export_webapp.py:163-175)
+    pool      = torch.zeros((1, _ONNX_MAX_POOL), dtype=torch.long)
+    pool_mask = torch.zeros((1, _ONNX_MAX_POOL), dtype=torch.bool)
+    pack      = torch.zeros((1, _ONNX_MAX_PACK), dtype=torch.long)
+    pack_mask = torch.ones( (1, _ONNX_MAX_PACK), dtype=torch.bool)
+    torch.onnx.export(
+        cpu_model, (pool, pool_mask, pack, pack_mask), str(path),
+        input_names=["pool", "pool_mask", "pack", "pack_mask"],
+        output_names=["logits"],
+        dynamic_axes={"pool": {0: "B"}, "pool_mask": {0: "B"}, "pack": {0: "B"},
+                      "pack_mask": {0: "B"}, "logits": {0: "B"}},
+        opset_version=17, dynamo=False,
+    )
+    _assert_padding_inert(cpu_model, path)
+
+    # Restore original model state (deepcopy means original is untouched, but be explicit)
+    model.train(orig_training)
+    model.set_content(orig_content.to(orig_device))
+    print(f"  exported ONNX → {path} ({path.stat().st_size / 1e6:.1f} MB)")
+
+
+def _assert_padding_inert(model, path: pathlib.Path) -> None:
+    """Verify that padding with mask=False is numerically identical to an unpadded forward pass.
+
+    Mirrors export_webapp._assert_padding_inert (scripts/export_webapp.py:179-197).
+    Uses card indices that are valid for the baked-in content table (indices < n_cards).
+    """
+    import numpy as np
+    import onnxruntime as ort
+
+    n_cards = model.content.shape[0]
+    # Use small safe indices (well within any set's vocab)
+    rp = [i % n_cards for i in [3, 10, 7, 4, 2]]
+    rk = [i % n_cards for i in [1, 5, 6, 8, 9]]
+    with torch.no_grad():
+        ref = model(torch.tensor([rp]), torch.ones(1, len(rp), dtype=torch.bool),
+                    torch.tensor([rk]), torch.ones(1, len(rk), dtype=torch.bool)).numpy()[0]
+    pool = np.zeros((1, _ONNX_MAX_POOL), np.int64); pool[0, :len(rp)] = rp
+    pm   = np.zeros((1, _ONNX_MAX_POOL), bool);     pm[0,   :len(rp)] = True
+    pk   = np.zeros((1, _ONNX_MAX_PACK), np.int64); pk[0,   :len(rk)] = rk
+    km   = np.zeros((1, _ONNX_MAX_PACK), bool);     km[0,   :len(rk)] = True
+    got = ort.InferenceSession(str(path)).run(
+        None, {"pool": pool, "pool_mask": pm, "pack": pk, "pack_mask": km})[0][0, :len(rk)]
+    diff = float(np.abs(ref - got).max())
+    assert diff < 1e-4, f"padded ONNX != unpadded torch (max diff {diff}) — masking not inert"
+    print(f"  padding-inert parity OK (max diff {diff:.2e})")
+
+
+def _write_meta(onnx_dir: pathlib.Path, a, train_sets: list) -> None:
+    """Write (or overwrite) meta.json in onnx_dir with the run's global config."""
+    meta = {
+        "max_pool": _ONNX_MAX_POOL,
+        "max_pack": _ONNX_MAX_PACK,
+        "emb_dim": a.emb_dim,
+        "enc_hidden": a.enc_hidden,
+        "enc_layers": a.enc_layers,
+        "train_sets": train_sets,
+        "holdout": a.holdout,
+        "input_signature": (
+            "pool int64[B,max_pool], pool_mask bool[B,max_pool], "
+            "pack int64[B,max_pack], pack_mask bool[B,max_pack] -> logits float32[B,max_pack]. "
+            "Card indices are HOLDOUT-set indices (baked-in content table). "
+            "Pad unused positions with index=0 and mask=False."
+        ),
+    }
+    (onnx_dir / "meta.json").write_text(json.dumps(meta, indent=2))
 
 
 if __name__ == "__main__":
