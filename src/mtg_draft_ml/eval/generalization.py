@@ -112,7 +112,7 @@ def novel_mask_for_holdout(holdout_manifest: str, train_keys: set) -> torch.Tens
 
 def run_loso(
     train_specs: list[dict], holdout_spec: dict,
-    embedder: str = "all-MiniLM-L6-v2", text: bool = True,
+    embedder: str | None = None, text: bool = True,
     emb_dim: int = 256, enc_hidden: int = 512, enc_layers: int = 3, dropout: float = 0.1,
     pool: str = "mean", n_heads: int = 4, n_sab: int = 1,
     loss: str = "ce", n_negatives: int = 512,
@@ -129,8 +129,14 @@ def run_loso(
     """Leave-one-set-out: train on the union of train_specs, evaluate zero-shot on holdout_spec.
 
     Each spec is {"parquet", "manifest", "scryfall"}.
+
+    ``embedder=None`` defers to the ``MTG_EMBED_MODEL`` env var (or ``all-MiniLM-L6-v2``).
+    Pass an explicit model name or ``"hash"`` to override.  The resolved name is recorded in the
+    returned dict under ``"embedder"`` so callers always know exactly which model was used.
     """
     emb = get_embedder(embedder)
+    # Resolve the actual model name for result recording (None → env/default resolved inside emb)
+    embedder = getattr(emb, "model_name", embedder or "hash")
     gmat, ginfo, key_to_idx, l2gs = build_multiset_content(train_specs, embedder=emb, text=text)
     hmat, hinfo = build_content_matrix(holdout_spec["manifest"], holdout_spec["scryfall"],
                                        embedder=emb, text=text)
