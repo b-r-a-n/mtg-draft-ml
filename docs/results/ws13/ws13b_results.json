@@ -1,0 +1,151 @@
+{
+  "config": {
+    "train_sets": [
+      "BLB",
+      "OTJ",
+      "WOE",
+      "MKM",
+      "LCI",
+      "MH3",
+      "MOM",
+      "FDN",
+      "DFT",
+      "TDM",
+      "FIN",
+      "EOE",
+      "ONE",
+      "BRO",
+      "DMU",
+      "SNC",
+      "NEO",
+      "MID",
+      "LTR"
+    ],
+    "holdout": "DSK",
+    "net": "emb512h1024L4",
+    "targets": [
+      "gih",
+      "+value"
+    ],
+    "seeds": [
+      3,
+      4,
+      5
+    ]
+  },
+  "runs": [
+    {
+      "seed": 3,
+      "results": {
+        "good/base": {
+          "top1": 0.5752,
+          "novel_top1": 0.5589089202204413,
+          "wr_agree_gih": 0.2965139052095574,
+          "wr_agree_value": 0.3099807882416578,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:gih": {
+          "top1": 0.5378833333333334,
+          "novel_top1": 0.5194103023243685,
+          "wr_agree_gih": 0.3301624605972432,
+          "wr_agree_value": 0.34799395668960886,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:+value": {
+          "top1": 0.5419833333333334,
+          "novel_top1": 0.523634846403922,
+          "wr_agree_gih": 0.31843023147370975,
+          "wr_agree_value": 0.34907578385839255,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        }
+      }
+    },
+    {
+      "seed": 4,
+      "results": {
+        "good/base": {
+          "top1": 0.5769,
+          "novel_top1": 0.5603171015802925,
+          "wr_agree_gih": 0.2859381120250685,
+          "wr_agree_value": 0.29608490478055693,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:gih": {
+          "top1": 0.5362333333333333,
+          "novel_top1": 0.5174284174475409,
+          "wr_agree_gih": 0.3209482774700166,
+          "wr_agree_value": 0.3418946897207767,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:+value": {
+          "top1": 0.5363166666666667,
+          "novel_top1": 0.5175501121329601,
+          "wr_agree_gih": 0.32993863428646036,
+          "wr_agree_value": 0.349430175517132,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        }
+      }
+    },
+    {
+      "seed": 5,
+      "results": {
+        "good/base": {
+          "top1": 0.5844666666666667,
+          "novel_top1": 0.568383720728082,
+          "wr_agree_gih": 0.28250610859306513,
+          "wr_agree_value": 0.28802715759237496,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:gih": {
+          "top1": 0.53895,
+          "novel_top1": 0.5204881695380817,
+          "wr_agree_gih": 0.31123048514352863,
+          "wr_agree_value": 0.3222539309495831,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:+value": {
+          "top1": 0.5346166666666666,
+          "novel_top1": 0.5157420768067315,
+          "wr_agree_gih": 0.32454815063510717,
+          "wr_agree_value": 0.33620577098837967,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        }
+      }
+    }
+  ],
+  "aggregate": {
+    "good/base": {
+      "top1": 0.5788555555555556,
+      "top1_std": 0.004027896549972947,
+      "wr_agree_gih": 0.288319375275897,
+      "wr_agree_gih_std": 0.005961398186922412,
+      "wr_agree_value": 0.29803095020486325,
+      "wr_agree_value_std": 0.009067553667385726
+    },
+    "good/comp:gih": {
+      "top1": 0.5376888888888889,
+      "top1_std": 0.0011175645919963572,
+      "wr_agree_gih": 0.32078040773692945,
+      "wr_agree_gih_std": 0.007729858076768623,
+      "wr_agree_value": 0.33738085911998955,
+      "wr_agree_value_std": 0.010982356495572007
+    },
+    "good/comp:+value": {
+      "top1": 0.5376388888888889,
+      "top1_std": 0.0031494071556562764,
+      "wr_agree_gih": 0.3243056721317591,
+      "wr_agree_gih_std": 0.004701413311872011,
+      "wr_agree_value": 0.3449039101213014,
+      "wr_agree_value_std": 0.006152214595503772
+    }
+  }
+}

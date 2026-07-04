@@ -188,6 +188,7 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
   noisy β had inflated the self-referential policies most (deckvalue_greedy −0.02 of margin under
   full-β vs the model's −0.005, winner's curse); most of the June→now margin growth is the big-net
   upgrade, and de-noising *raises* the playprob beat-rate 90→92% despite a smaller mean margin.
+- [ws13-value-target-fullbeta.md](ws13-value-target-fullbeta.md) — **WS1.3: `deck_value`-as-target REFUTED at 6 seeds + both prongs** (WR-agree:GIH +0.0065 t=1.66, outcome prong +0.0009 flat; ⚠ the 3-seed +0.0096 result was a head-fake — confirmation run reversed it; teacher stays GIH-composite; corpus breadth subsumes the deck_value signal even with the reliable ruler).
 - [ws14-linearity-fulldata.md](ws14-linearity-fulldata.md) — **WS1.4: linearity confirmed at ~10× data**
   (3 sets: DSK 1,011,949 games; BLB 931,230; MKM 964,377). **GBM − linear ≤ 0.0001 logloss, pair
   deltas ∈ {−0.0001, 0, +0.0001} — all noise**. MKM (Detective-synergy) is the hardest case: face-

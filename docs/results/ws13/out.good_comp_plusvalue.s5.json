@@ -1,0 +1,34 @@
+{
+  "set": "DSK",
+  "n_drafts": 800,
+  "n_spells": 23,
+  "train_sets": 19,
+  "teacher": "gih+value",
+  "in_distribution": false,
+  "mean": {
+    "human": 0.6323381651591785,
+    "model": 0.6360084334308393,
+    "gih_greedy": 0.7215212629278339,
+    "deckvalue_greedy": 0.7484277713061107,
+    "random": 0.5099789659070482
+  },
+  "std": {
+    "human": 0.04670981227501509,
+    "model": 0.04761030143793915,
+    "gih_greedy": 0.041363253920196304,
+    "deckvalue_greedy": 0.03761707696171232,
+    "random": 0.040571598404794795
+  },
+  "beats_human_frac": {
+    "model": 0.52625,
+    "gih_greedy": 0.985,
+    "deckvalue_greedy": 0.9975,
+    "random": 0.02
+  },
+  "delta_vs_human": {
+    "model": 0.0036702682716608453,
+    "gih_greedy": 0.08918309776865552,
+    "deckvalue_greedy": 0.11608960614693226,
+    "random": -0.1223591992521304
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "config": {
+    "train_sets": [
+      "BLB",
+      "OTJ",
+      "WOE",
+      "MKM",
+      "LCI",
+      "MH3",
+      "MOM",
+      "FDN",
+      "DFT",
+      "TDM",
+      "FIN",
+      "EOE",
+      "ONE",
+      "BRO",
+      "DMU",
+      "SNC",
+      "NEO",
+      "MID",
+      "LTR"
+    ],
+    "holdout": "DSK",
+    "net": "emb512h1024L4",
+    "targets": [
+      "gih",
+      "+value",
+      "value"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ]
+  },
+  "runs": [
+    {
+      "seed": 0,
+      "results": {
+        "good/base": {
+          "top1": 0.58625,
+          "novel_top1": 0.5704351454251491,
+          "wr_agree_gih": 0.2847257195083282,
+          "wr_agree_value": 0.28623654710611235,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:gih": {
+          "top1": 0.5454833333333333,
+          "novel_top1": 0.5273899966968585,
+          "wr_agree_gih": 0.30580269710704494,
+          "wr_agree_value": 0.31967992837558057,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:+value": {
+          "top1": 0.5482333333333334,
+          "novel_top1": 0.5302411293266807,
+          "wr_agree_gih": 0.3096637009680488,
+          "wr_agree_value": 0.3271035010165445,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:value": {
+          "top1": 0.5592833333333334,
+          "novel_top1": 0.54152396516055,
+          "wr_agree_gih": 0.30322869453304235,
+          "wr_agree_value": 0.3257045865741518,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "results": {
+        "good/base": {
+          "top1": 0.5810333333333333,
+          "novel_top1": 0.5648198049408042,
+          "wr_agree_gih": 0.29985264767873465,
+          "wr_agree_value": 0.3079103948669166,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:gih": {
+          "top1": 0.54155,
+          "novel_top1": 0.5230437579318857,
+          "wr_agree_gih": 0.3302557215600694,
+          "wr_agree_value": 0.3428459515416037,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:+value": {
+          "top1": 0.5400333333333334,
+          "novel_top1": 0.5213921872011961,
+          "wr_agree_gih": 0.3412791673661239,
+          "wr_agree_value": 0.36651558390688826,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:value": {
+          "top1": 0.5515666666666666,
+          "novel_top1": 0.5333704212374611,
+          "wr_agree_gih": 0.3255553690336299,
+          "wr_agree_value": 0.36569488743401785,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "results": {
+        "good/base": {
+          "top1": 0.5811666666666667,
+          "novel_top1": 0.5649936544914032,
+          "wr_agree_gih": 0.2824874564004999,
+          "wr_agree_value": 0.2852852852852853,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:gih": {
+          "top1": 0.5504666666666667,
+          "novel_top1": 0.5326402531249457,
+          "wr_agree_gih": 0.3229440620744969,
+          "wr_agree_value": 0.3418946897207767,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:+value": {
+          "top1": 0.5539166666666666,
+          "novel_top1": 0.5360824742268041,
+          "wr_agree_gih": 0.33676533676533676,
+          "wr_agree_value": 0.35021356760487193,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        },
+        "good/comp:value": {
+          "top1": 0.5633,
+          "novel_top1": 0.5458702039255229,
+          "wr_agree_gih": 0.3086751347620913,
+          "wr_agree_value": 0.3334265942961595,
+          "human_gih": 0.2981179937701677,
+          "human_value": 0.29705481879394924
+        }
+      }
+    }
+  ],
+  "aggregate": {
+    "good/base": {
+      "top1": 0.5828166666666666,
+      "top1_std": 0.0024283434377888055,
+      "wr_agree_gih": 0.2890219411958542,
+      "wr_agree_gih_std": 0.007712786250709362,
+      "wr_agree_value": 0.2931440757527714,
+      "wr_agree_value_std": 0.010448583951857408
+    },
+    "good/comp:gih": {
+      "top1": 0.5458333333333333,
+      "top1_std": 0.0036486171911297377,
+      "wr_agree_gih": 0.3196674935805371,
+      "wr_agree_gih_std": 0.010248236500223194,
+      "wr_agree_value": 0.33480685654598696,
+      "wr_agree_value_std": 0.01070340106905019
+    },
+    "good/comp:+value": {
+      "top1": 0.5473944444444444,
+      "top1_std": 0.0056988032098582745,
+      "wr_agree_gih": 0.32923606836650315,
+      "wr_agree_gih_std": 0.013961896739775007,
+      "wr_agree_value": 0.3479442175094349,
+      "wr_agree_value_std": 0.01616973576016992
+    },
+    "good/comp:value": {
+      "top1": 0.55805,
+      "top1_std": 0.004868854150695101,
+      "wr_agree_gih": 0.31248639944292117,
+      "wr_agree_gih_std": 0.009504890054223064,
+      "wr_agree_value": 0.3416086894347764,
+      "wr_agree_value_std": 0.01732081698147606
+    }
+  }
+}

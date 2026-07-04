@@ -79,7 +79,7 @@ skill controls (`on_play, num_mulligans, user_game_win_rate_bucket`) are already
     held-out drafts as [results/outcome-eval.md], scoring with full-data β.
   - Deliverable: the new "model vs human" margins (old-β baselines: +0.049/84% playprob,
     +0.063/95% top-23). These become the numbers all later work is judged against.
-- [ ] **WS1.3 — Re-test `deck_value`-as-target at 19 sets with reliable β.**
+- [x] **WS1.3 — Re-test `deck_value`-as-target at 19 sets with reliable β.** *(2026-07-04 — REFUTED at 6 seeds: GIH-agree +0.0065 t=1.66, outcome prong +0.0009 flat; the 3-seed +0.0096 was a head-fake; teacher stays GIH-composite; see [results/ws13-value-target-fullbeta.md])*
   - The "subsumed by corpus breadth" verdict ([game-data-value-model.md] compounding test) was
     reached with noisy β. Rerun `scripts/pod_game_value_target.py` with `--train-sets <nested19>`,
     holdout DSK, targets `gih,+value,value`, **3–4 seeds** (GPU pod, big net:
@@ -92,6 +92,14 @@ skill controls (`on_play, num_mulligans, user_game_win_rate_bucket`) are already
   - Question: does GBM / pair-interaction now beat linear on held-out log-loss? If linearity still
     holds at ~10× data, the bound is real — pool-conditioned *pick* objectives stay dead and WS3
     becomes the only route to a richer outcome signal. Either answer is valuable; write it up.
+
+**WS1 exit (2026-07-04).** WS1 is complete. The ruler is fixed (ρ 0.644 → 0.860, WS1.1), the
+baselines re-established on the reliable ruler (playprob +0.0567/92%, WS1.2), and BOTH contested
+walls survived clean re-measurement: WS1.3 REFUTED (deck_value adds nothing as a target even with
+ρ=0.87) and WS1.4 CONFIRMED-LINEAR (GBM − linear ≤ 0.0001 logloss at ~10× data). The walls are
+real; the noisy ruler was not the explanation. Remaining open routes: **WS2** (representation /
+day-0 generalization) and **WS3** (replay go/no-go — the only remaining path to a richer outcome
+signal).
 
 ---
 
