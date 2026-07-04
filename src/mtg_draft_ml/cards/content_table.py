@@ -66,6 +66,7 @@ def build_content_matrix(manifest_path, scryfall_path, embedder=None, text: bool
         "total_dim": int(matrix.shape[1]),
         "n_missing_scryfall": n_missing,
         "embedder": type(embedder).__name__,
+        "embedder_model": getattr(embedder, "model_name", None),
     }
     return matrix, info
 
@@ -115,6 +116,7 @@ def build_multiset_content(set_specs, embedder=None, text: bool = True):
         "total_dim": int(matrix.shape[1]),
         "n_sets": len(set_specs),
         "embedder": type(embedder).__name__,
+        "embedder_model": getattr(embedder, "model_name", None),
     }
     return matrix, info, key_to_idx, per_set
 
