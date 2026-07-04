@@ -112,7 +112,7 @@ text_embed.py`, cached by `cards/content_table.py`). Our own research flagged th
 most and the model is weakest. Harness for everything here: **rotated LOSO** (3 seeds × 5 holdouts,
 `scripts/rotate_seeds.py` pattern) + WR-agreement on the holdout.
 
-- [ ] **WS2.1 — Modern embedder swap (do first, cheapest).**
+- [x] **WS2.1 — Modern embedder swap (do first, cheapest).** *(2026-07-04 — NULL: bge-large +0.0000, e5-large +0.0011 rotated top-1 vs MiniLM control (which reproduced the 0.5405 baseline exactly); WR-agree Δ ≤ +0.005; generic semantics isn't the axis — WS2.2/WS2.3 carry the representation bet; see [results/ws21-embedder-sweep.md])*
   - Make the sentence-transformer model configurable in `cards/text_embed.py` (currently MiniLM);
     add a cache key per model so embeddings don't collide.
   - Arms: MiniLM-384 (control), and 2 modern embedders (e.g. `bge-large-en-v1.5`,

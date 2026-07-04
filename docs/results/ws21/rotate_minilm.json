@@ -1,0 +1,260 @@
+{
+  "embedder": "all-MiniLM-L6-v2",
+  "sets": [
+    "BLB",
+    "OTJ",
+    "WOE",
+    "MKM",
+    "DSK"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "epochs": 10,
+  "standardize": false,
+  "overall": {
+    "n_runs": 15,
+    "top1_mean": 0.5409489677433692,
+    "top1_std": 0.023397782479777352,
+    "novel_top1_mean": 0.5349413752656953,
+    "novel_top1_std": 0.020883288669867602,
+    "wr_agreement_model_mean": 0.252788762811542,
+    "wr_agreement_human_mean": 0.28934516958930107
+  },
+  "per_holdout": {
+    "BLB": {
+      "top1_mean": 0.55935,
+      "top1_std": 0.0018006686001059001
+    },
+    "OTJ": {
+      "top1_mean": 0.5314833333333333,
+      "top1_std": 0.0031123410267299852
+    },
+    "WOE": {
+      "top1_mean": 0.5118281720501795,
+      "top1_std": 0.0021139283265115385
+    },
+    "MKM": {
+      "top1_mean": 0.5262222222222223,
+      "top1_std": 0.0028129769828729233
+    },
+    "DSK": {
+      "top1_mean": 0.575861111111111,
+      "top1_std": 0.00013698697784373995
+    }
+  },
+  "runs": [
+    {
+      "seed": 0,
+      "holdout": "BLB",
+      "top1": 0.5616833333333333,
+      "novel_top1": 0.5616833333333333,
+      "wr_model": 0.286046889382208,
+      "wr_human": 0.29265255292652553,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/BLB.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/BLB.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/blb.json"
+      }
+    },
+    {
+      "seed": 0,
+      "holdout": "OTJ",
+      "top1": 0.5270833333333333,
+      "novel_top1": 0.5135393160909564,
+      "wr_model": 0.2398849866502362,
+      "wr_human": 0.28499411863552343,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/OTJ.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/OTJ.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/otj.json"
+      }
+    },
+    {
+      "seed": 0,
+      "holdout": "WOE",
+      "top1": 0.5103836794559818,
+      "novel_top1": 0.5103899136119542,
+      "wr_model": 0.23282196494498011,
+      "wr_human": 0.2809957346141439,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/WOE.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/WOE.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/woe.json"
+      }
+    },
+    {
+      "seed": 0,
+      "holdout": "MKM",
+      "top1": 0.5285666666666666,
+      "novel_top1": 0.527731969171743,
+      "wr_model": 0.23488123880678016,
+      "wr_human": 0.28996544800014473,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/MKM.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/MKM.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/mkm.json"
+      }
+    },
+    {
+      "seed": 0,
+      "holdout": "DSK",
+      "top1": 0.5758833333333333,
+      "novel_top1": 0.5601258670746336,
+      "wr_model": 0.25896704157573724,
+      "wr_human": 0.2981179937701677,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/DSK.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/DSK.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/dsk.json"
+      }
+    },
+    {
+      "seed": 1,
+      "holdout": "BLB",
+      "top1": 0.5590666666666667,
+      "novel_top1": 0.5590666666666667,
+      "wr_model": 0.29205696031187395,
+      "wr_human": 0.29265255292652553,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/BLB.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/BLB.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/blb.json"
+      }
+    },
+    {
+      "seed": 1,
+      "holdout": "OTJ",
+      "top1": 0.5337833333333334,
+      "novel_top1": 0.5204478389168548,
+      "wr_model": 0.24938852480442128,
+      "wr_human": 0.28499411863552343,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/OTJ.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/OTJ.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/otj.json"
+      }
+    },
+    {
+      "seed": 1,
+      "holdout": "WOE",
+      "top1": 0.5102836761225374,
+      "novel_top1": 0.5102398185517495,
+      "wr_model": 0.23203340621527654,
+      "wr_human": 0.2809957346141439,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/WOE.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/WOE.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/woe.json"
+      }
+    },
+    {
+      "seed": 1,
+      "holdout": "MKM",
+      "top1": 0.5222666666666667,
+      "novel_top1": 0.5210177363443611,
+      "wr_model": 0.24132129741854955,
+      "wr_human": 0.28996544800014473,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/MKM.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/MKM.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/mkm.json"
+      }
+    },
+    {
+      "seed": 1,
+      "holdout": "DSK",
+      "top1": 0.5756833333333333,
+      "novel_top1": 0.5601780219398133,
+      "wr_model": 0.25902299815343294,
+      "wr_human": 0.2981179937701677,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/DSK.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/DSK.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/dsk.json"
+      }
+    },
+    {
+      "seed": 2,
+      "holdout": "BLB",
+      "top1": 0.5573,
+      "novel_top1": 0.5573,
+      "wr_model": 0.2890789972386161,
+      "wr_human": 0.29265255292652553,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/BLB.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/BLB.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/blb.json"
+      }
+    },
+    {
+      "seed": 2,
+      "holdout": "OTJ",
+      "top1": 0.5335833333333333,
+      "novel_top1": 0.5202395417462247,
+      "wr_model": 0.252357213540208,
+      "wr_human": 0.28499411863552343,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/OTJ.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/OTJ.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/otj.json"
+      }
+    },
+    {
+      "seed": 2,
+      "holdout": "WOE",
+      "top1": 0.5148171605720191,
+      "novel_top1": 0.5148093792735399,
+      "wr_model": 0.23292949568084878,
+      "wr_human": 0.2809957346141439,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/WOE.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/WOE.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/woe.json"
+      }
+    },
+    {
+      "seed": 2,
+      "holdout": "MKM",
+      "top1": 0.5278333333333334,
+      "novel_top1": 0.5267559654023491,
+      "wr_model": 0.24240670055536462,
+      "wr_human": 0.28996544800014473,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/MKM.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/MKM.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/mkm.json"
+      }
+    },
+    {
+      "seed": 2,
+      "holdout": "DSK",
+      "top1": 0.5760166666666666,
+      "novel_top1": 0.5605952608612507,
+      "wr_model": 0.24863372689459645,
+      "wr_human": 0.2981179937701677,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/DSK.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/DSK.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/dsk.json"
+      }
+    }
+  ]
+}
