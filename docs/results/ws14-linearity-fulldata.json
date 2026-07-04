@@ -1,0 +1,83 @@
+{
+  "task": "WS1.4",
+  "date": "2026-07-03",
+  "verdict": "CONFIRMED-LINEAR",
+  "probes": [
+    {
+      "set": "DSK",
+      "n_games": 1011949,
+      "logloss_linear": 0.6673,
+      "logloss_gbm": 0.6673,
+      "gbm_minus_linear_logloss": 0.0000,
+      "auc_linear": 0.6150,
+      "auc_gbm": 0.6152,
+      "pair_delta_logloss": 0.0001,
+      "n_candidate_pairs": 4005,
+      "stdout_path": "/tmp/ws14_DSK.log",
+      "top_pairs_sample": [
+        "Fear of Burning Alive + Patchwork Beastie (syn=+0.021, n=11483)",
+        "Impossible Inferno + Patchwork Beastie (syn=+0.016, n=14060)",
+        "Winter's Intervention + Threats Around Every Corner (syn=+0.014, n=8098)"
+      ]
+    },
+    {
+      "set": "BLB",
+      "n_games": 931230,
+      "logloss_linear": 0.6665,
+      "logloss_gbm": 0.6664,
+      "gbm_minus_linear_logloss": -0.0001,
+      "auc_linear": 0.6171,
+      "auc_gbm": 0.6173,
+      "pair_delta_logloss": -0.0001,
+      "n_candidate_pairs": 4001,
+      "stdout_path": "/tmp/ws14_BLB.log",
+      "top_pairs_sample": [
+        "Wick's Patrol + Shoreline Looter (+0.021, n=9618)",
+        "Dire Downdraft + Cindering Cutthroat (+0.019, n=1769)",
+        "Seedpod Squire + Oakhollow Village (+0.019, n=4754)"
+      ]
+    },
+    {
+      "set": "MKM",
+      "n_games": 964377,
+      "logloss_linear": 0.6665,
+      "logloss_gbm": 0.6664,
+      "gbm_minus_linear_logloss": -0.0001,
+      "auc_linear": 0.6156,
+      "auc_gbm": 0.6154,
+      "pair_delta_logloss": 0.0000,
+      "n_candidate_pairs": 4005,
+      "stdout_path": "/tmp/ws14_MKM.log",
+      "top_pairs_sample": [
+        "Karlov Watchdog + Macabre Reconstruction (+0.026, n=2359)",
+        "Glint Weaver + Hotshot Investigators (+0.023, n=3713)",
+        "Exit Specialist + Glint Weaver (+0.022, n=6453)",
+        "Deduce + Glint Weaver (+0.021, n=6300)"
+      ],
+      "notes": "MKM: GBM logloss trivially better (0.6664 < 0.6665) but GBM AUC trivially worse (0.6154 < 0.6156). Logloss and AUC optimise different things (calibration vs rank order); the direction inconsistency is 1e-4-level noise, not contradictory."
+    }
+  ],
+  "old_80k_dsk_baseline": {
+    "set": "DSK",
+    "n_games": 80000,
+    "logloss_linear": 0.668,
+    "logloss_gbm": 0.671,
+    "gbm_minus_linear_logloss": 0.003,
+    "pair_delta_logloss": 0.0006,
+    "notes": "Old sample-based run from game-data-value-model.md Step 2 / synergy-probe.md. At 80k scale GBM was actually WORSE than linear (0.671 > 0.668); full-data confirms this was small-data noise, not a win."
+  },
+  "verifier_verdict": "CONFIRMED-LINEAR. Three reasons: (a) cross-set consistency at 10x scale with magnitude zero — GBM beats linear by at most 0.0001 logloss, pair deltas symmetric noise in {-0.0001, 0, +0.0001}; (b) n_games match the WS1.1 build table exactly and AUC/logloss directions are internally consistent (the MKM inconsistency is 1e-4-level calibration-vs-rank noise); (c) MKM is the hardest case — a Detective-synergy set where face-plausible combos are detected yet add +0.0000 held-out.",
+  "caveats": [
+    {
+      "id": "gbm_cap",
+      "summary": "GBM architecturally capped relative to full data",
+      "detail": "The GBM is HistGradientBoostingClassifier with max_iter=300, max_leaf_nodes=31, early_stopping=True (default n_iter_no_change=10). At 800k training rows the same cap is far more constraining relative to data than at 64k. A skeptic could argue the GBM should have been scaled up with the data; a deeper/longer-budget GBM arm would make the bound airtight. Counter-point: early_stopping means the GBM stops when its internal validation (~80k rows) stops improving — if the linear model exhausts the signal at that scale, the budget question is moot."
+    },
+    {
+      "id": "min_support",
+      "summary": "pair-selection --min-support 150 was NOT scaled with the data",
+      "detail": "At ~1M games, min-support=150 is ~0.023% of games (vs ~0.23% at 80k games). This admits ~4,001–4,005 candidate pairs — far more than at the old scale — potentially including noisier low-support pairs. The held-out test still catching nothing is reassuring, but a min-support~1500 re-run (matching the old ~0.23% threshold) would be the cleaner test. Does not affect the aggregate logloss result, only individual pair rankings."
+    }
+  ],
+  "implication": "Linearity holds at ~10x data across three formats with different synergy themes (horror-tribal, gift/boon, detective). Pool-conditioned pick objectives stay dead. WS3 (replay-data credit assignment) is the only remaining route to a richer outcome signal."
+}

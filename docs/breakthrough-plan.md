@@ -86,7 +86,7 @@ skill controls (`on_play, num_mulligans, user_game_win_rate_bucket`) are already
     `--emb-dim 512 --enc-hidden 1024 --enc-layers 4`).
   - **Adopt only if** GIH-agree or the WS1.2 outcome-eval margin improves > +0.01 beyond seed noise;
     otherwise record REFUTED and keep the GIH-composite teacher.
-- [ ] **WS1.4 — Re-run the linearity probe on full data.**
+- [x] **WS1.4 — Re-run the linearity probe on full data.** *(2026-07-03 — CONFIRMED-LINEAR at ~10× data, 3/3 sets, GBM−linear ≤ 0.0001 logloss, pairs ≈ 0; WS3 is now the only route to a richer outcome signal; see [results/ws14-linearity-fulldata.md])*
   - `scripts/probe_deck_outcome.py --set DSK` (then ≥2 more sets) using the full game_data cache
     (vs the old 80k sample) and full-β.
   - Question: does GBM / pair-interaction now beat linear on held-out log-loss? If linearity still

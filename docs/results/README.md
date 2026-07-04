@@ -188,6 +188,12 @@ cleaner-label effect; multi-seed at scale reversed both — see [good-players.md
   noisy β had inflated the self-referential policies most (deckvalue_greedy −0.02 of margin under
   full-β vs the model's −0.005, winner's curse); most of the June→now margin growth is the big-net
   upgrade, and de-noising *raises* the playprob beat-rate 90→92% despite a smaller mean margin.
+- [ws14-linearity-fulldata.md](ws14-linearity-fulldata.md) — **WS1.4: linearity confirmed at ~10× data**
+  (3 sets: DSK 1,011,949 games; BLB 931,230; MKM 964,377). **GBM − linear ≤ 0.0001 logloss, pair
+  deltas ∈ {−0.0001, 0, +0.0001} — all noise**. MKM (Detective-synergy) is the hardest case: face-
+  plausible synergy pairs detected but add +0.0000 held-out. Caveats: GBM cap not scaled with data;
+  --min-support 150 is ~0.023% at 1M games (was 0.23% at 80k). Verdict: **pool-conditioned pick
+  objectives stay dead; WS3 (replay data) is the only remaining route to a richer outcome signal.**
 - [distillation.md](distillation.md) — soft-label KD: ensemble / WR-softmax / leaky-feature (DD-004).
 - [good-players.md](good-players.md) — skill-filtered training + the volume-matched control.
 - [phase1-generalization.md](phase1-generalization.md) — single-set vs multi-set LOSO; the
