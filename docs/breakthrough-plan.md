@@ -1,6 +1,6 @@
 # Breakthrough plan — re-opening the modeling track
 
-**Status: ACTIVE (2026-07-03). Owner: agent team. Read this whole file before starting any task.**
+**Status: STOP-CONDITION EXECUTED (2026-07-05).** WS1.3/WS1.4/WS2.1 null and WS2.2 below-gate → the walls are confirmed with a clean ruler; the modeling re-adjudication is CLOSED. WS2.4 (cold-start number) and WS3.0 (replay go/no-go) remain as OPTIONAL bounded probes explicitly outside this closure; WS4.1 is closed unrun (its premise — headroom in the skill axis — is now below the demonstrated effect floor).
 
 `docs/SUMMARY.md` concluded the modeling track is bounded out at three walls. A 2026-07-03 review
 found that **two of the three walls were measured with a noisy ruler**, and that the highest-leverage
@@ -120,7 +120,7 @@ most and the model is weakest. Harness for everything here: **rotated LOSO** (3 
     Note: larger dim (1024) changes encoder input width; keep total params comparable
     (the capacity sweep showed params don't matter — [results/README.md] Phase 4).
   - **Gate: rotated-LOSO top-1 +0.01 over 0.5405, or holdout WR-agree +0.01, mean over 3 seeds.**
-- [ ] **WS2.2 — LLM-annotated card tags as structured features.**
+- [x] **WS2.2 — LLM-annotated card tags as structured features.** *(2026-07-05 — BELOW-GATE: WR-agree +0.006 at t≈3, twice-replicated (79% and 100% tag coverage), top1 +0.004/+0.005; gains concentrate in the weakest holdouts (WOE +0.019, MKM +0.013); real but under the +0.01 bar — not adopted; see [results/ws22-llm-tags.md])*
   - Generate once per set with a cheap LLM from Scryfall oracle text: is_removal, is_sweeper,
     is_card_advantage, is_ramp/fixing, is_evasive, is_combat_trick, is_bomb_rate, archetype_role
     (payoff/enabler/filler), expected_speed. Cache as `data/hf/tags/<SET>.tags.json`; validate
@@ -128,12 +128,12 @@ most and the model is weakest. Harness for everything here: **rotated LOSO** (3 
   - Append to the 73 structured features in `cards/content_table.py`. Same harness/gate as WS2.1.
   - This directly tests the open research question: do text embeddings transfer to *novel
     mechanics*, or do we need explicit function tags?
-- [ ] **WS2.3 — Interaction-tuned text encoder (beeFormer-style; only if 2.1/2.2 show signal).**
+- [x] **WS2.3 — Interaction-tuned text encoder (beeFormer-style; only if 2.1/2.2 show signal).** *(closed 2026-07-05 — gate not met: WS2.1 null and WS2.2 below-gate; not run)*
   - Fine-tune the text tower (LoRA or last-2-layers) so card-embedding dot products predict
     co-pick/co-play on nested19 (positive pairs: same-deck cards from game_data `deck_` columns;
     in-pack negatives — NOT global negatives, see ground rule 7).
   - Freeze after tuning; rebuild cache; same harness/gate.
-- [ ] **WS2.4 — Run the cold-start scaffold to a number.**
+- [ ] **WS2.4 — Run the cold-start scaffold to a number.** *(optional — survives the closure)*
   - `src/mtg_draft_ml/distill/teacher.py` + `coldstart.py` + `scripts/pod_coldstart.py` exist as
     scaffolds (DD-004 #4) but were never run to a result. Define day-0 eval: ZERO target-set picks,
     model + LLM-teacher blend vs model alone, on the rotated holdouts.
@@ -151,7 +151,7 @@ life`, user+oppo, plus `drawn_*/tutored_*/opening_hand_*` per card — schema at
 It attacks both remaining walls at once: a value signal that isn't GIH (different confounds) and
 many observations per game instead of one `won` bit (higher effective sample size).
 
-- [ ] **WS3.0 — Go/no-go probe (bounded: one set, one week).**
+- [ ] **WS3.0 — Go/no-go probe (bounded: one set, one week).** *(optional — survives the closure)*
   - Download ONE set's replay data (DSK), map the schema, and fit the simplest credit model:
     per-card **cast-conditioned** value (logistic `won ~ Σ cast_count_c + controls`, mirroring
     `eval/game_value.py`) and/or a per-turn win-prob model whose deltas attribute to cards cast
@@ -170,7 +170,7 @@ many observations per game instead of one `won` bit (higher effective sample siz
 lever grew with scale (+0.0158 WR at big net), so the skill axis isn't exhausted — just crudely
 used. `src/mtg_draft_ml/distill/skill.py` is a starting scaffold.
 
-- [ ] **WS4.1 — DPO-style pairwise objective.** On matched (pool, pack) states where a
+- [x] **WS4.1 — DPO-style pairwise objective.** *(closed unrun 2026-07-05 — its premise — headroom in the skill axis — is now below the demonstrated effect floor from WS2.2; not worth running)* On matched (pool, pack) states where a
   top-bucket and bottom-bucket player picked differently, prefer the good pick (pairwise logistic
   on the two logits, weight by skill gap; keep the in-pack CE as the base loss).
   **Gate: holdout WR-agree +0.01 over the good+composite baseline (3 seeds), no top-1 loss > 0.01,
@@ -192,3 +192,7 @@ used. `src/mtg_draft_ml/distill/skill.py` is a starting scaffold.
 **Stop conditions:** if WS1.3, WS1.4, WS2.1 AND WS2.2 all come back null, the walls are confirmed
 with a clean ruler — update `docs/SUMMARY.md` to say so and close the modeling track for good, this
 time with the measurement caveats resolved.
+
+**EXECUTED 2026-07-05.** WS1.3 REFUTED, WS1.4 CONFIRMED-LINEAR, WS2.1 NULL, WS2.2 BELOW-GATE →
+stop-condition met. `docs/SUMMARY.md` updated with RESOLUTION notice. WS2.4 and WS3.0 survive as
+optional bounded probes outside this closure; WS4.1 closed unrun.

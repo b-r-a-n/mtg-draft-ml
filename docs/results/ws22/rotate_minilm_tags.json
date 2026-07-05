@@ -1,0 +1,291 @@
+{
+  "embedder": "all-MiniLM-L6-v2",
+  "sets": [
+    "BLB",
+    "OTJ",
+    "WOE",
+    "MKM",
+    "DSK"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "epochs": 10,
+  "standardize": false,
+  "tags_dir": "data/hf/tags",
+  "overall": {
+    "n_runs": 15,
+    "top1_mean": 0.5447846010052186,
+    "top1_std": 0.01880193418299249,
+    "novel_top1_mean": 0.5389625191257722,
+    "novel_top1_std": 0.017510488246397476,
+    "wr_agreement_model_mean": 0.25900278072163957,
+    "wr_agreement_human_mean": 0.28934516958930107
+  },
+  "per_holdout": {
+    "BLB": {
+      "top1_mean": 0.56065,
+      "top1_std": 0.000993683756236042
+    },
+    "OTJ": {
+      "top1_mean": 0.5316944444444445,
+      "top1_std": 0.0025457420272163985
+    },
+    "WOE": {
+      "top1_mean": 0.5234841161372046,
+      "top1_std": 0.00190020953352387
+    },
+    "MKM": {
+      "top1_mean": 0.5357,
+      "top1_std": 0.0050672697009555455
+    },
+    "DSK": {
+      "top1_mean": 0.5723944444444444,
+      "top1_std": 0.0030331908798458635
+    }
+  },
+  "runs": [
+    {
+      "seed": 0,
+      "holdout": "BLB",
+      "top1": 0.5606833333333333,
+      "novel_top1": 0.5606833333333333,
+      "wr_model": 0.28646199938635913,
+      "wr_human": 0.29265255292652553,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/BLB.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/BLB.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/blb.json"
+      },
+      "tag_coverage_train": 0.7864823348694316,
+      "tag_coverage_holdout": 0.9637681159420289
+    },
+    {
+      "seed": 0,
+      "holdout": "OTJ",
+      "top1": 0.5281333333333333,
+      "novel_top1": 0.5143725047734768,
+      "wr_model": 0.252954685487033,
+      "wr_human": 0.28499411863552343,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/OTJ.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/OTJ.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/otj.json"
+      },
+      "tag_coverage_train": 0.8466666666666667,
+      "tag_coverage_holdout": 0.7244094488188977
+    },
+    {
+      "seed": 0,
+      "holdout": "WOE",
+      "top1": 0.5258675289176306,
+      "novel_top1": 0.5258663820419599,
+      "wr_model": 0.2426431054876519,
+      "wr_human": 0.2809957346141439,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/WOE.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/WOE.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/woe.json"
+      },
+      "tag_coverage_train": 0.8593125499600319,
+      "tag_coverage_holdout": 0.6565349544072948
+    },
+    {
+      "seed": 0,
+      "holdout": "MKM",
+      "top1": 0.5364166666666667,
+      "novel_top1": 0.5359438629556087,
+      "wr_model": 0.2495884513106243,
+      "wr_human": 0.28996544800014473,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/MKM.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/MKM.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/mkm.json"
+      },
+      "tag_coverage_train": 0.8110047846889952,
+      "tag_coverage_holdout": 0.843558282208589
+    },
+    {
+      "seed": 0,
+      "holdout": "DSK",
+      "top1": 0.5703166666666667,
+      "novel_top1": 0.5547365310060673,
+      "wr_model": 0.2562438214612128,
+      "wr_human": 0.2981179937701677,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/DSK.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/DSK.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/dsk.json"
+      },
+      "tag_coverage_train": 0.7851622874806801,
+      "tag_coverage_holdout": 0.965034965034965
+    },
+    {
+      "seed": 1,
+      "holdout": "BLB",
+      "top1": 0.56185,
+      "novel_top1": 0.56185,
+      "wr_model": 0.2935549659790279,
+      "wr_human": 0.29265255292652553,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/BLB.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/BLB.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/blb.json"
+      },
+      "tag_coverage_train": 0.7864823348694316,
+      "tag_coverage_holdout": 0.9637681159420289
+    },
+    {
+      "seed": 1,
+      "holdout": "OTJ",
+      "top1": 0.5330166666666667,
+      "novel_top1": 0.5197187988196493,
+      "wr_model": 0.2593214959203869,
+      "wr_human": 0.28499411863552343,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/OTJ.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/OTJ.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/otj.json"
+      },
+      "tag_coverage_train": 0.8466666666666667,
+      "tag_coverage_holdout": 0.7244094488188977
+    },
+    {
+      "seed": 1,
+      "holdout": "WOE",
+      "top1": 0.5212173739124637,
+      "novel_top1": 0.5212301124045229,
+      "wr_model": 0.23943510520090325,
+      "wr_human": 0.2809957346141439,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/WOE.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/WOE.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/woe.json"
+      },
+      "tag_coverage_train": 0.8593125499600319,
+      "tag_coverage_holdout": 0.6565349544072948
+    },
+    {
+      "seed": 1,
+      "holdout": "MKM",
+      "top1": 0.5415166666666666,
+      "novel_top1": 0.5414801601992394,
+      "wr_model": 0.25403860417156604,
+      "wr_human": 0.28996544800014473,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/MKM.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/MKM.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/mkm.json"
+      },
+      "tag_coverage_train": 0.8110047846889952,
+      "tag_coverage_holdout": 0.843558282208589
+    },
+    {
+      "seed": 1,
+      "holdout": "DSK",
+      "top1": 0.5766833333333333,
+      "novel_top1": 0.5619339024008623,
+      "wr_model": 0.2593214332344767,
+      "wr_human": 0.2981179937701677,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/DSK.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/DSK.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/dsk.json"
+      },
+      "tag_coverage_train": 0.7851622874806801,
+      "tag_coverage_holdout": 0.965034965034965
+    },
+    {
+      "seed": 2,
+      "holdout": "BLB",
+      "top1": 0.5594166666666667,
+      "novel_top1": 0.5594166666666667,
+      "wr_model": 0.30454635695850707,
+      "wr_human": 0.29265255292652553,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/BLB.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/BLB.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/blb.json"
+      },
+      "tag_coverage_train": 0.7864823348694316,
+      "tag_coverage_holdout": 0.9637681159420289
+    },
+    {
+      "seed": 2,
+      "holdout": "OTJ",
+      "top1": 0.5339333333333334,
+      "novel_top1": 0.5205519875021698,
+      "wr_model": 0.2606471368024048,
+      "wr_human": 0.28499411863552343,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/OTJ.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/OTJ.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/otj.json"
+      },
+      "tag_coverage_train": 0.8466666666666667,
+      "tag_coverage_holdout": 0.7244094488188977
+    },
+    {
+      "seed": 2,
+      "holdout": "WOE",
+      "top1": 0.5233674455815194,
+      "novel_top1": 0.5233481204763016,
+      "wr_model": 0.23810889279185635,
+      "wr_human": 0.2809957346141439,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/WOE.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/WOE.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/woe.json"
+      },
+      "tag_coverage_train": 0.8593125499600319,
+      "tag_coverage_holdout": 0.6565349544072948
+    },
+    {
+      "seed": 2,
+      "holdout": "MKM",
+      "top1": 0.5291666666666667,
+      "novel_top1": 0.5287079729411369,
+      "wr_model": 0.24095949637294453,
+      "wr_human": 0.28996544800014473,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/MKM.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/MKM.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/mkm.json"
+      },
+      "tag_coverage_train": 0.8110047846889952,
+      "tag_coverage_holdout": 0.843558282208589
+    },
+    {
+      "seed": 2,
+      "holdout": "DSK",
+      "top1": 0.5701833333333334,
+      "novel_top1": 0.5545974513655882,
+      "wr_model": 0.24721616025963852,
+      "wr_human": 0.2981179937701677,
+      "embedder": "all-MiniLM-L6-v2",
+      "files": {
+        "parquet": "data/hf/draft/DSK.PremierDraft.sample60000.parquet",
+        "manifest": "data/hf/manifests/DSK.PremierDraft.sample60000.json",
+        "scryfall": "data/hf/scryfall/dsk.json"
+      },
+      "tag_coverage_train": 0.7851622874806801,
+      "tag_coverage_holdout": 0.965034965034965
+    }
+  ]
+}

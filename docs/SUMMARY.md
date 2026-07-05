@@ -108,12 +108,15 @@ context · pack vecs ─► masked softmax over the pack ─► pick     (+ deck
 
 ## Bottom line
 
-> **⚠ 2026-07-03 update:** a review found two of the three "walls" below were measured with a noisy
-> ruler (`deck_value` split-half ρ=0.644 on 150k-game samples) or against a confounded proxy
-> (WR-agreement:GIH), and the highest-leverage representation mitigation (interaction-tuned /
-> modern text encoder) was never run. The modeling track is **re-opened** —
-> see [`breakthrough-plan.md`](breakthrough-plan.md) for the re-adjudication plan and its gates.
-> The paragraphs below record the pre-review conclusion.
+> **RESOLUTION (2026-07-03–05):** The re-adjudication ran 2026-07-03→05
+> (see [`breakthrough-plan.md`](breakthrough-plan.md)). Outcome: the ruler was genuinely noisy and
+> is now fixed (`deck_value` split-half ρ 0.644→0.860; outcome-eval baselines re-established at
+> +0.0567/92% playprob, +0.0717/98% top-23), but **every contested wall survived clean
+> re-measurement**: deck_value-target refuted at 6 seeds; linearity confirmed at ~10× data;
+> modern embedders null; LLM tags real-but-below-gate at +0.006 WR-agree (twice-replicated,
+> 30 paired cells). **The pre-review conclusion below stands, now on far firmer footing.**
+> Durable upgrades from the exercise: reliable β everywhere, exact-reproduction LOSO harness with
+> configurable embedders/tags, and 1,682 LLM-tagged cards on HF.
 
 The research arc is **complete**: the pick model is at its characterized ceilings (top-1 ≈0.58 human
 noise; WR-agreement ≈0.326 corpus-breadth ceiling, **beating average human**), it drafts **outcome-better
