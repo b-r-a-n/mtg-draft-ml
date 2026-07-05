@@ -13,6 +13,9 @@ import re
 import numpy as np
 
 COLORS = ["W", "U", "B", "R", "G"]
+TAG_ROLES = ["payoff", "enabler", "filler"]
+TAG_SPEEDS = ["aggro", "control", "neutral"]
+TAG_DIM = 14  # 6 bool + bomb_float + 3 role one-hot + 3 speed one-hot + is_tagged
 TYPES = ["Creature", "Instant", "Sorcery", "Artifact", "Enchantment",
          "Planeswalker", "Land", "Battle"]
 RARITY = {"common": 0.0, "uncommon": 1 / 3, "rare": 2 / 3, "mythic": 1.0}
@@ -72,7 +75,7 @@ def _mana_pips(cost: str):
     return acc["W"], acc["U"], acc["B"], acc["R"], acc["G"], acc["gen"], acc["C"], has_x
 
 
-def feature_names() -> list[str]:
+def feature_names(with_tags: bool = False) -> list[str]:
     names = ["cmc", "cmc_log"]
     names += [f"color_{c}" for c in COLORS]
     names += [f"identity_{c}" for c in COLORS]
@@ -84,7 +87,55 @@ def feature_names() -> list[str]:
     names += [f"produces_{c}" for c in COLORS] + ["produces_C"]
     names += [f"kw_{k}" for k in KEYWORDS]
     names += ["text_len"]
+    if with_tags:
+        names += tag_feature_names()
     return names
+
+
+def tag_feature_names() -> list[str]:
+    """Feature names for the 14-dim LLM-tag vector."""
+    names = ["tag_removal", "tag_sweeper", "tag_card_advantage", "tag_ramp_or_fixing",
+             "tag_evasive", "tag_combat_trick", "tag_bomb"]
+    names += [f"tag_role_{r}" for r in TAG_ROLES]
+    names += [f"tag_speed_{s}" for s in TAG_SPEEDS]
+    names += ["is_tagged"]
+    return names
+
+
+def tag_features(record: dict | None) -> np.ndarray:
+    """Convert one tag record (or None for untagged) to a 14-dim float32 vector.
+
+    Layout:
+      [0]  removal         bool
+      [1]  sweeper         bool
+      [2]  card_advantage  bool
+      [3]  ramp_or_fixing  bool
+      [4]  evasive         bool
+      [5]  combat_trick    bool
+      [6]  bomb            float 0-1
+      [7-9]  role one-hot  (payoff, enabler, filler)
+      [10-12] speed one-hot (aggro, control, neutral)
+      [13] is_tagged       0 or 1
+    Untagged (record is None) -> all zeros including is_tagged=0.
+    """
+    v = np.zeros(TAG_DIM, dtype=np.float32)
+    if record is None:
+        return v
+    v[0] = float(bool(record.get("removal", 0)))
+    v[1] = float(bool(record.get("sweeper", 0)))
+    v[2] = float(bool(record.get("card_advantage", 0)))
+    v[3] = float(bool(record.get("ramp_or_fixing", 0)))
+    v[4] = float(bool(record.get("evasive", 0)))
+    v[5] = float(bool(record.get("combat_trick", 0)))
+    v[6] = float(record.get("bomb", 0.0))
+    role = record.get("role", "")
+    if role in TAG_ROLES:
+        v[7 + TAG_ROLES.index(role)] = 1.0
+    speed = record.get("speed", "")
+    if speed in TAG_SPEEDS:
+        v[10 + TAG_SPEEDS.index(speed)] = 1.0
+    v[13] = 1.0  # is_tagged
+    return v
 
 
 FEATURE_NAMES = feature_names()

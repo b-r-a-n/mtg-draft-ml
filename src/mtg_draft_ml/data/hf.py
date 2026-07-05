@@ -24,6 +24,7 @@ _ALL_PATTERNS = [
     "scryfall/*.json",      # per-set Scryfall card records (for the content encoder)
     "ratings/*.json",       # 17lands GIH-WR ratings (for WR-agreement + aux-WR)
     "gamevalue/*.json",     # game_data per-card marginal-value field (eval.game_value, Step 1)
+    "tags/*.json",          # LLM-annotated per-card structured tags (WS2.2)
     "cards/*.parquet",      # precomputed feature/embedding tables (future)
 ]
 

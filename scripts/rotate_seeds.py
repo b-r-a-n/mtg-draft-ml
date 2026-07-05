@@ -86,6 +86,12 @@ def _parse_args(argv=None) -> argparse.Namespace:
         "--standardize", action="store_true",
         help="Per-column z-score the content matrix.",
     )
+    ap.add_argument(
+        "--tags-dir", default=None,
+        help="Directory containing <SET>.tags.json files (default: None = no tags). "
+             "When set, each set's tags file is loaded and the 14 tag dims are appended "
+             "to the structured feature block for BOTH train and holdout content matrices.",
+    )
     return ap.parse_args(argv)
 
 
@@ -111,15 +117,20 @@ def _resolve_sample_size(data_dir: str, set_code: str) -> str:
     return sample_part[len("sample"):]  # e.g. "60000"
 
 
-def spec(data_dir: str, s: str, size: str) -> dict:
+def spec(data_dir: str, s: str, size: str, tags_dir: str | None = None) -> dict:
     """Build a file-spec dict for set *s* given the resolved sample *size* string."""
     p = pathlib.Path(data_dir)
-    return {
+    d: dict = {
         "parquet":  str(p / "draft"     / f"{s}.PremierDraft.sample{size}.parquet"),
         "manifest": str(p / "manifests" / f"{s}.PremierDraft.sample{size}.json"),
         "scryfall": str(p / "scryfall"  / f"{s.lower()}.json"),
         "ratings":  str(p / "ratings"   / f"{s}.PremierDraft.ratings.json"),
     }
+    if tags_dir is not None:
+        tags_path = pathlib.Path(tags_dir) / f"{s}.tags.json"
+        if tags_path.exists():
+            d["tags"] = str(tags_path)
+    return d
 
 
 # ---------------------------------------------------------------------------
@@ -164,12 +175,13 @@ def main(argv=None):
     rows = []
     for seed in seeds:
         for ho in sets:
-            train_specs = [spec(a.data_dir, s, sizes[s]) for s in sets if s != ho]
-            hold = spec(a.data_dir, ho, sizes[ho])
+            train_specs = [spec(a.data_dir, s, sizes[s], tags_dir=a.tags_dir)
+                           for s in sets if s != ho]
+            hold = spec(a.data_dir, ho, sizes[ho], tags_dir=a.tags_dir)
             r = run_loso(
                 train_specs,
                 {"parquet": hold["parquet"], "manifest": hold["manifest"],
-                 "scryfall": hold["scryfall"]},
+                 "scryfall": hold["scryfall"], **({} if "tags" not in hold else {"tags": hold["tags"]})},
                 embedder=a.embedder,        # None → env/MiniLM; "hash" → hashing; else explicit
                 pool="set_transformer", loss="ce",
                 aux_wr=1.0, holdout_ratings=hold["ratings"],
@@ -179,7 +191,7 @@ def main(argv=None):
             )
             h = r["holdout"]
             resolved_embedder = r.get("embedder")
-            rows.append({
+            row: dict = {
                 "seed": seed, "holdout": ho,
                 "top1": h["top1"],
                 "novel_top1": h.get("novel_top1"),
@@ -191,7 +203,12 @@ def main(argv=None):
                     "manifest": hold["manifest"],
                     "scryfall": hold["scryfall"],
                 },
-            })
+            }
+            if "tag_coverage_train" in r:
+                row["tag_coverage_train"] = r["tag_coverage_train"]
+            if "tag_coverage_holdout" in r:
+                row["tag_coverage_holdout"] = r["tag_coverage_holdout"]
+            rows.append(row)
             print(
                 f">>> [seed {seed} | holdout {ho}] "
                 f"top1={h['top1']:.4f} "
@@ -225,6 +242,7 @@ def main(argv=None):
         "seeds": seeds,
         "epochs": a.epochs,
         "standardize": a.standardize,
+        "tags_dir": a.tags_dir,
         "overall": {
             "n_runs": len(rows),
             "top1_mean": allt[0], "top1_std": allt[1],

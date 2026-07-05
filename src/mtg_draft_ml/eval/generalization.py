@@ -125,6 +125,7 @@ def run_loso(
     epochs: int = 10, batch_size: int = 512, lr: float = 1e-3, val_frac: float = 0.05,
     device: str = "auto", checkpoint_dir: str = "data/checkpoints", seed: int = 0,
     out_json: str | None = None,
+    tags=None,
 ) -> dict:
     """Leave-one-set-out: train on the union of train_specs, evaluate zero-shot on holdout_spec.
 
@@ -133,13 +134,20 @@ def run_loso(
     ``embedder=None`` defers to the ``MTG_EMBED_MODEL`` env var (or ``all-MiniLM-L6-v2``).
     Pass an explicit model name or ``"hash"`` to override.  The resolved name is recorded in the
     returned dict under ``"embedder"`` so callers always know exactly which model was used.
+
+    ``tags``: optional top-level tags source (path, dict, or None).  Each train spec may also
+    carry a "tags" key for per-set override.  When provided, 14 tag dims are appended to the
+    structured block for both the global training matrix and the holdout matrix.
     """
     emb = get_embedder(embedder)
     # Resolve the actual model name for result recording (None → env/default resolved inside emb)
     embedder = getattr(emb, "model_name", embedder or "hash")
-    gmat, ginfo, key_to_idx, l2gs = build_multiset_content(train_specs, embedder=emb, text=text)
+    gmat, ginfo, key_to_idx, l2gs = build_multiset_content(
+        train_specs, embedder=emb, text=text, tags=tags)
+    # Tags for the holdout: per-spec override if present, else fall back to global tags arg
+    holdout_tags = holdout_spec.get("tags", tags)
     hmat, hinfo = build_content_matrix(holdout_spec["manifest"], holdout_spec["scryfall"],
-                                       embedder=emb, text=text)
+                                       embedder=emb, text=text, tags=holdout_tags)
     assert gmat.shape[1] == hmat.shape[1], (gmat.shape, hmat.shape)
 
     if standardize_features:
@@ -216,6 +224,11 @@ def run_loso(
         "holdout": {"parquet": holdout_spec["parquet"], "n_cards": hinfo["n_cards"],
                     "frac_cards_novel": frac_novel, **cross},
     }
+    if "tags" in ginfo:
+        results["tags"] = ginfo.get("tags")
+        results["tag_coverage_train"] = ginfo.get("tag_coverage", 0.0)
+    if "tags" in hinfo:
+        results["tag_coverage_holdout"] = hinfo.get("tag_coverage", 0.0)
     _print_loso(results)
 
     # Pick-time quality blend: sweep alpha using the aux head's PREDICTED quality (works for

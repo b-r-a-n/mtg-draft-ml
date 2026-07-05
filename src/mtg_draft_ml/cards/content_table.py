@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import json
 import pathlib
+from typing import Union
 
 import numpy as np
 
-from .features import FEATURE_DIM, card_features
+from .features import FEATURE_DIM, TAG_DIM, card_features, tag_features
 from .text_embed import get_embedder
 
 
@@ -28,19 +29,39 @@ def _name_index(cards: list[dict]) -> dict[str, dict]:
     return idx
 
 
-def build_content_matrix(manifest_path, scryfall_path, embedder=None, text: bool = True):
-    """Return (matrix [n_cards, D] float32, info dict). embedder defaults to HashingTextEmbedder."""
+def _load_tags(tags: Union[str, pathlib.Path, dict, None]) -> dict[str, dict] | None:
+    """Normalise the ``tags`` argument to a name->record dict (or None if absent)."""
+    if tags is None:
+        return None
+    if isinstance(tags, dict):
+        return tags
+    # Path-like: load the JSON file and build the name->record index
+    data = json.load(open(tags))
+    return {rec["name"]: rec for rec in data.get("cards", [])}
+
+
+def build_content_matrix(manifest_path, scryfall_path, embedder=None, text: bool = True,
+                         tags=None):
+    """Return (matrix [n_cards, D] float32, info dict). embedder defaults to HashingTextEmbedder.
+
+    ``tags``: optional path to a <SET>.tags.json file (or a preloaded name->record dict).
+    When provided, 14 tag dims are appended to the structured block (before text embeddings).
+    When absent the output is byte-identical to the no-tags code path.
+    """
     from .scryfall import load_scryfall
 
     manifest = json.load(open(manifest_path))
     cards = manifest["cards"]  # [{index, name, oracle_id}], index-ordered
     by_name = _name_index(load_scryfall(scryfall_path))
+    tag_dict = _load_tags(tags)
 
     embedder = embedder or get_embedder("hash")
     n = len(cards)
     feats = np.zeros((n, FEATURE_DIM), dtype=np.float32)
+    tag_feats = np.zeros((n, TAG_DIM), dtype=np.float32) if tag_dict is not None else None
     texts: list[str] = []
     n_missing = 0
+    n_tagged = 0
     for row in cards:
         rec = by_name.get(row["name"])
         if rec is None:
@@ -50,33 +71,54 @@ def build_content_matrix(manifest_path, scryfall_path, embedder=None, text: bool
         feats[row["index"]] = card_features(rec)
         from .features import _all_text
         texts.append(_all_text(rec))
+        if tag_feats is not None:
+            trec = tag_dict.get(row["name"])
+            tag_feats[row["index"]] = tag_features(trec)
+            if trec is not None:
+                n_tagged += 1
+
+    # Build structured block (with tags interleaved before text embeddings)
+    if tag_feats is not None:
+        struct = np.concatenate([feats, tag_feats], axis=1).astype(np.float32)
+        struct_dim = FEATURE_DIM + TAG_DIM
+    else:
+        struct = feats
+        struct_dim = FEATURE_DIM
 
     if text:
         text_embs = embedder.embed(texts)
-        matrix = np.concatenate([feats, text_embs], axis=1).astype(np.float32)
+        matrix = np.concatenate([struct, text_embs], axis=1).astype(np.float32)
         text_dim = int(text_embs.shape[1])
     else:
-        matrix = feats
+        matrix = struct
         text_dim = 0
 
     info = {
         "n_cards": n,
-        "feature_dim": FEATURE_DIM,
+        "feature_dim": struct_dim,
         "text_dim": text_dim,
         "total_dim": int(matrix.shape[1]),
         "n_missing_scryfall": n_missing,
         "embedder": type(embedder).__name__,
         "embedder_model": getattr(embedder, "model_name", None),
     }
+    if tag_dict is not None:
+        info["tags"] = str(tags) if not isinstance(tags, dict) else True
+        info["tag_coverage"] = n_tagged / n if n > 0 else 0.0
     return matrix, info
 
 
-def build_multiset_content(set_specs, embedder=None, text: bool = True):
+def build_multiset_content(set_specs, embedder=None, text: bool = True, tags=None):
     """Build a shared content matrix over the UNION of several sets' cards.
 
-    set_specs: list of {"manifest": ..., "scryfall": ...}. Cards are deduped by oracle_id (or
-    lowercased name). Returns (matrix [N_global, D], info, key_to_idx, per_set_local_to_global),
+    set_specs: list of {"manifest": ..., "scryfall": ..., optionally "tags": path}.
+    Cards are deduped by oracle_id (or lowercased name). Returns
+    (matrix [N_global, D], info, key_to_idx, per_set_local_to_global),
     where per_set_local_to_global[k] is an int array mapping set k's local indices to global rows.
+
+    ``tags``: optional top-level tags dict/path (applied to all sets), OR each spec may carry
+    its own "tags" key.  Per-spec tags take precedence over the top-level value.
+    When absent the output is byte-identical to the no-tags code path.
     """
     from .features import FEATURE_DIM, _all_text
     from .scryfall import load_scryfall
@@ -84,12 +126,22 @@ def build_multiset_content(set_specs, embedder=None, text: bool = True):
     embedder = embedder or get_embedder("hash")
     key_to_idx: dict[str, int] = {}
     feats: list[np.ndarray] = []
+    tag_rows: list[np.ndarray] = []
     texts: list[str] = []
     per_set: list[np.ndarray] = []
+
+    # Determine whether ANY spec has tags (to decide layout upfront)
+    use_tags = (tags is not None) or any("tags" in s for s in set_specs)
+
+    total_tagged = 0
+    total_cards = 0
 
     for spec in set_specs:
         manifest = json.load(open(spec["manifest"]))
         by_name = _name_index(load_scryfall(spec["scryfall"]))
+        # Per-spec tags take precedence over global tags arg
+        spec_tags_raw = spec.get("tags", tags)
+        tag_dict = _load_tags(spec_tags_raw) if use_tags else None
         l2g = np.empty(len(manifest["cards"]), dtype=np.int64)
         for row in manifest["cards"]:  # index-ordered
             key = row.get("oracle_id") or (row.get("name") or "").lower()
@@ -98,26 +150,43 @@ def build_multiset_content(set_specs, embedder=None, text: bool = True):
                 rec = by_name.get(row["name"])
                 feats.append(card_features(rec) if rec else np.zeros(FEATURE_DIM, np.float32))
                 texts.append(_all_text(rec) if rec else "")
+                if use_tags:
+                    trec = tag_dict.get(row["name"]) if tag_dict else None
+                    tag_rows.append(tag_features(trec))
+                    if trec is not None:
+                        total_tagged += 1
+                total_cards += 1
             l2g[row["index"]] = key_to_idx[key]
         per_set.append(l2g)
 
     feat_mat = np.vstack(feats).astype(np.float32)
+    if use_tags:
+        tag_mat = np.vstack(tag_rows).astype(np.float32)
+        struct = np.concatenate([feat_mat, tag_mat], axis=1).astype(np.float32)
+        struct_dim = FEATURE_DIM + TAG_DIM
+    else:
+        struct = feat_mat
+        struct_dim = FEATURE_DIM
+
     if text:
         tembs = embedder.embed(texts)
-        matrix = np.concatenate([feat_mat, tembs], axis=1).astype(np.float32)
+        matrix = np.concatenate([struct, tembs], axis=1).astype(np.float32)
         text_dim = int(tembs.shape[1])
     else:
-        matrix = feat_mat
+        matrix = struct
         text_dim = 0
     info = {
         "n_cards": int(matrix.shape[0]),
-        "feature_dim": FEATURE_DIM,
+        "feature_dim": struct_dim,
         "text_dim": text_dim,
         "total_dim": int(matrix.shape[1]),
         "n_sets": len(set_specs),
         "embedder": type(embedder).__name__,
         "embedder_model": getattr(embedder, "model_name", None),
     }
+    if use_tags:
+        info["tags"] = True
+        info["tag_coverage"] = total_tagged / total_cards if total_cards > 0 else 0.0
     return matrix, info, key_to_idx, per_set
 
 
