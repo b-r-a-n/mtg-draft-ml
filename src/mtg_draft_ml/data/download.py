@@ -24,6 +24,13 @@ _17L_GAME_TMPL = (
     "https://17lands-public.s3.amazonaws.com/analysis_data/game_data/"
     "game_data_public.{set_code}.{event_type}.csv.gz"
 )
+# 17lands replay data — one row per GAME with per-turn action aggregates (creatures_cast,
+# non_creatures_cast, etc.) + per-card deck_ columns + sideboard_ columns.
+# e.g. .../replay_data_public.DSK.PremierDraft.csv.gz
+_17L_REPLAY_TMPL = (
+    "https://17lands-public.s3.amazonaws.com/analysis_data/replay_data/"
+    "replay_data_public.{set_code}.{event_type}.csv.gz"
+)
 # 17lands aggregate card ratings (GIH WR, ALSA, IWD, ...) per set/format.
 # A date range is REQUIRED — without it the API returns all-zero counts / null win rates.
 _17L_RATINGS = ("https://www.17lands.com/card_ratings/data?expansion={set_code}"
@@ -113,6 +120,38 @@ def _stream_sample(requests, url, out, sample_rows, force, timeout) -> pathlib.P
                 f.write(line)
                 if i >= sample_rows:  # header is line 0, then sample_rows rows
                     break
+    return out
+
+
+def download_17lands_replay(
+    set_code: str,
+    event_type: str = "PremierDraft",
+    dest_dir: str | pathlib.Path = "data/raw",
+    sample_rows: int | None = None,
+    force: bool = False,
+    timeout: int = 300,
+) -> pathlib.Path:
+    """Download a 17lands per-GAME replay CSV (`replay_data_public.*`). Returns the local path.
+
+    The replay CSV is structurally similar to game_data but also contains per-turn action aggregates
+    (creatures_cast, non_creatures_cast, instants_sorceries_cast per turn) plus per-card `deck_`
+    columns (identical to game_data) and `sideboard_` columns. The file is ~570 MB compressed for
+    DSK PremierDraft, so `sample_rows=N` (stream-decompress + keep header + first N rows) is the
+    default for local work. Full downloads use a longer timeout (300s default vs 120s for game_data).
+    """
+    requests = _require_requests()
+    dest_dir = pathlib.Path(dest_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    url = _17L_REPLAY_TMPL.format(set_code=set_code, event_type=event_type)
+
+    if sample_rows:
+        out = dest_dir / f"replay.{set_code}.{event_type}.sample{sample_rows}.csv"
+        return _stream_sample(requests, url, out, sample_rows, force, timeout)
+
+    out = dest_dir / f"replay.{set_code}.{event_type}.csv.gz"
+    if out.exists() and not force:
+        return out
+    _stream_to_file(requests, url, out, timeout)
     return out
 
 

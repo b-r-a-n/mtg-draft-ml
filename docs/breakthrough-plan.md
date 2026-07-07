@@ -151,7 +151,7 @@ life`, user+oppo, plus `drawn_*/tutored_*/opening_hand_*` per card — schema at
 It attacks both remaining walls at once: a value signal that isn't GIH (different confounds) and
 many observations per game instead of one `won` bit (higher effective sample size).
 
-- [ ] **WS3.0 — Go/no-go probe (bounded: one set, one week).** *(optional — survives the closure)*
+- [x] **WS3.0 — Go/no-go probe (bounded: one set, one week).** *(2026-07-07 — GO: split-half ρ 0.976 (beats matched-n deck_value 0.944; ref 0.909), Sp vs GIH 0.637, face-plausible with a documented cast-selection confound; ran locally for $0; see [results/ws30-replay-gonogo.md])*
   - Download ONE set's replay data (DSK), map the schema, and fit the simplest credit model:
     per-card **cast-conditioned** value (logistic `won ~ Σ cast_count_c + controls`, mirroring
     `eval/game_value.py`) and/or a per-turn win-prob model whose deltas attribute to cards cast
@@ -160,7 +160,7 @@ many observations per game instead of one `won` bit (higher effective sample siz
     deck_value's (WS1.1 result), (b) Spearman vs GIH **< 0.95** (it's a new signal, not a
     re-derivation), and (c) be face-plausible (spot-check top/bottom 15 cards).
   - If NO-GO: write it up and stop — do not sink further time.
-- [ ] **WS3.1 — (gated on 3.0) replay-β as eval + target.** Repeat WS1.2/WS1.3 with replay-β.
+- [ ] **WS3.1 — (gated on 3.0) replay-β as eval + target.** Repeat WS1.2/WS1.3 with replay-β. *(now unlocked; design must address the cast-selection confound)*
 
 ---
 

@@ -1,0 +1,501 @@
+{
+  "set": "DSK",
+  "event": "PremierDraft",
+  "sample_rows": null,
+  "n_games": 1011949,
+  "n_cast_total": 7852680,
+  "mean_distinct_cast_per_game": 6.979518730687021,
+  "mean_total_cast_per_game": 7.759956359863281,
+  "unmapped_id_fraction": 0.000730553886079659,
+  "n_manifest_covered_by_arena_id": 276,
+  "overlap_check": {
+    "is_subset": false,
+    "conclusion": "SEPARATE_COLUMNS",
+    "violations_in_sample": 200,
+    "cells_checked": 200,
+    "is_nonempty_nc_null": 21960,
+    "total_is_nonempty": 24778
+  },
+  "win_rate": 0.5448189377784729,
+  "l2": 30.0,
+  "min_support": 12649.362500000001,
+  "train_acc": 0.6364817023277283,
+  "intercept": 0.20053847917613482,
+  "control_coef": {
+    "on_play": 0.10286038368940353,
+    "num_mulligans": -0.18906085193157196,
+    "user_game_win_rate_bucket": 0.2800349295139313
+  },
+  "spearman_gih": 0.6366402720523021,
+  "spearman_iwd": 0.6575079441383044,
+  "spearman_gih_well": 0.702336491867033,
+  "spearman_iwd_well": 0.6814778233896108,
+  "n_well_sampled": 180,
+  "spearman_vs_deck_value_full": 0.7187840670783353,
+  "spearman_vs_deck_value_full_well": 0.7775075362408305,
+  "split_half_rho_replay_cast": 0.9757865833690204,
+  "split_half_n_well": 106,
+  "split_half_rho_matched_game_data": 0.9436679474301611,
+  "ws11_dsk_reference_rho": 0.909,
+  "gate_a_split_half": true,
+  "gate_b_gih_divergence": true,
+  "decision": "PROCEED",
+  "top15": [
+    {
+      "name": "Valgavoth's Onslaught",
+      "beta": 0.7142069339752197,
+      "support": 20509
+    },
+    {
+      "name": "Ghostly Dancers",
+      "beta": 0.7069710493087769,
+      "support": 18483
+    },
+    {
+      "name": "Unholy Annex // Ritual Chamber",
+      "beta": 0.6940069198608398,
+      "support": 21669
+    },
+    {
+      "name": "The Swarmweaver",
+      "beta": 0.5717474222183228,
+      "support": 24977
+    },
+    {
+      "name": "Jump Scare",
+      "beta": 0.5513556003570557,
+      "support": 27378
+    },
+    {
+      "name": "Zimone, All-Questioning",
+      "beta": 0.5014917850494385,
+      "support": 21221
+    },
+    {
+      "name": "Turn Inside Out",
+      "beta": 0.5013927221298218,
+      "support": 49916
+    },
+    {
+      "name": "Balustrade Wurm",
+      "beta": 0.4693669378757477,
+      "support": 18035
+    },
+    {
+      "name": "Midnight Mayhem",
+      "beta": 0.4479231834411621,
+      "support": 37204
+    },
+    {
+      "name": "Fear of Burning Alive",
+      "beta": 0.4450942873954773,
+      "support": 32824
+    },
+    {
+      "name": "Dissection Tools",
+      "beta": 0.42652446031570435,
+      "support": 23149
+    },
+    {
+      "name": "Vile Mutilator",
+      "beta": 0.4261341392993927,
+      "support": 15830
+    },
+    {
+      "name": "Unstoppable Slasher",
+      "beta": 0.409758985042572,
+      "support": 21115
+    },
+    {
+      "name": "Vanish from Sight",
+      "beta": 0.34438416361808777,
+      "support": 27449
+    },
+    {
+      "name": "Optimistic Scavenger",
+      "beta": 0.336670458316803,
+      "support": 52382
+    }
+  ],
+  "bottom15": [
+    {
+      "name": "Keys to the House",
+      "beta": -0.23971480131149292,
+      "support": 17532
+    },
+    {
+      "name": "Friendly Teddy",
+      "beta": -0.1971428394317627,
+      "support": 24779
+    },
+    {
+      "name": "Grab the Prize",
+      "beta": -0.18308773636817932,
+      "support": 20794
+    },
+    {
+      "name": "Anthropede",
+      "beta": -0.1671489030122757,
+      "support": 15595
+    },
+    {
+      "name": "Found Footage",
+      "beta": -0.16200125217437744,
+      "support": 15060
+    },
+    {
+      "name": "Living Phone",
+      "beta": -0.13212406635284424,
+      "support": 17590
+    },
+    {
+      "name": "Malevolent Chandelier",
+      "beta": -0.12884175777435303,
+      "support": 13661
+    },
+    {
+      "name": "Glimmerburst",
+      "beta": -0.11451250314712524,
+      "support": 48559
+    },
+    {
+      "name": "Trial of Agony",
+      "beta": -0.11294452100992203,
+      "support": 22037
+    },
+    {
+      "name": "Creeping Peeper",
+      "beta": -0.11250792443752289,
+      "support": 52355
+    },
+    {
+      "name": "Say Its Name",
+      "beta": -0.10455521941184998,
+      "support": 82232
+    },
+    {
+      "name": "Grasping Longneck",
+      "beta": -0.08556367456912994,
+      "support": 53612
+    },
+    {
+      "name": "Savior of the Small",
+      "beta": -0.07338032126426697,
+      "support": 16362
+    },
+    {
+      "name": "Cult Healer",
+      "beta": -0.06445106863975525,
+      "support": 37700
+    },
+    {
+      "name": "Resurrected Cultist",
+      "beta": -0.06374336779117584,
+      "support": 30031
+    }
+  ],
+  "promoted_vs_iwd": [
+    {
+      "name": "Jump Scare",
+      "beta": 0.5513556003570557,
+      "beta_rank": 0.9776536312849162,
+      "iwd": -0.0024015363305807114,
+      "iwd_rank": 0.17318435754189945,
+      "gih": 0.5532007813453674,
+      "support": 27378,
+      "delta_rank": 0.8044692737430168
+    },
+    {
+      "name": "Altanak, the Thrice-Called",
+      "beta": 0.3024652600288391,
+      "beta_rank": 0.8770949720670391,
+      "iwd": 0.00038864498492330313,
+      "iwd_rank": 0.2011173184357542,
+      "gih": 0.5415605902671814,
+      "support": 18595,
+      "delta_rank": 0.6759776536312849
+    },
+    {
+      "name": "Turn Inside Out",
+      "beta": 0.5013927221298218,
+      "beta_rank": 0.9664804469273743,
+      "iwd": 0.01031024195253849,
+      "iwd_rank": 0.30726256983240224,
+      "gih": 0.5694866180419922,
+      "support": 49916,
+      "delta_rank": 0.6592178770949721
+    },
+    {
+      "name": "Lionheart Glimmer",
+      "beta": 0.304116815328598,
+      "beta_rank": 0.88268156424581,
+      "iwd": 0.011413597501814365,
+      "iwd_rank": 0.3240223463687151,
+      "gih": 0.5561464428901672,
+      "support": 25905,
+      "delta_rank": 0.5586592178770949
+    },
+    {
+      "name": "Rootwise Survivor",
+      "beta": 0.2969497740268707,
+      "beta_rank": 0.8659217877094972,
+      "iwd": 0.011797160841524601,
+      "iwd_rank": 0.33519553072625696,
+      "gih": 0.5424538850784302,
+      "support": 18539,
+      "delta_rank": 0.5307262569832403
+    },
+    {
+      "name": "Most Valuable Slayer",
+      "beta": 0.1298784762620926,
+      "beta_rank": 0.6145251396648045,
+      "iwd": -0.004051588010042906,
+      "iwd_rank": 0.15083798882681565,
+      "gih": 0.5468722581863403,
+      "support": 96782,
+      "delta_rank": 0.46368715083798884
+    },
+    {
+      "name": "The Jolly Balloon Man",
+      "beta": 0.1741953045129776,
+      "beta_rank": 0.6927374301675978,
+      "iwd": 0.005233274307101965,
+      "iwd_rank": 0.25139664804469275,
+      "gih": 0.542677640914917,
+      "support": 13725,
+      "delta_rank": 0.44134078212290506
+    },
+    {
+      "name": "Fear of Exposure",
+      "beta": 0.07707582414150238,
+      "beta_rank": 0.5083798882681564,
+      "iwd": -0.010865624062716961,
+      "iwd_rank": 0.0670391061452514,
+      "gih": 0.5283368825912476,
+      "support": 28088,
+      "delta_rank": 0.441340782122905
+    },
+    {
+      "name": "Vanish from Sight",
+      "beta": 0.34438416361808777,
+      "beta_rank": 0.9273743016759777,
+      "iwd": 0.022979598492383957,
+      "iwd_rank": 0.49162011173184356,
+      "gih": 0.5684242844581604,
+      "support": 27449,
+      "delta_rank": 0.4357541899441341
+    },
+    {
+      "name": "Friendly Ghost",
+      "beta": 0.18017806112766266,
+      "beta_rank": 0.7039106145251397,
+      "iwd": 0.007898740470409393,
+      "iwd_rank": 0.2849162011173184,
+      "gih": 0.5557850003242493,
+      "support": 47357,
+      "delta_rank": 0.4189944134078213
+    },
+    {
+      "name": "Slavering Branchsnapper",
+      "beta": 0.1139935553073883,
+      "beta_rank": 0.5754189944134078,
+      "iwd": -0.0017925928113982081,
+      "iwd_rank": 0.18435754189944134,
+      "gih": 0.542217493057251,
+      "support": 41520,
+      "delta_rank": 0.3910614525139665
+    },
+    {
+      "name": "Fear of Abduction",
+      "beta": 0.2966659963130951,
+      "beta_rank": 0.8603351955307262,
+      "iwd": 0.02351757511496544,
+      "iwd_rank": 0.5083798882681564,
+      "gih": 0.562026858329773,
+      "support": 21780,
+      "delta_rank": 0.35195530726256985
+    },
+    {
+      "name": "Fear of Falling",
+      "beta": 0.20208722352981567,
+      "beta_rank": 0.7541899441340782,
+      "iwd": 0.018424224108457565,
+      "iwd_rank": 0.4301675977653631,
+      "gih": 0.5545962452888489,
+      "support": 35929,
+      "delta_rank": 0.32402234636871513
+    },
+    {
+      "name": "Fear of Being Hunted",
+      "beta": 0.1874600648880005,
+      "beta_rank": 0.7262569832402235,
+      "iwd": 0.01639416441321373,
+      "iwd_rank": 0.4022346368715084,
+      "gih": 0.5694124102592468,
+      "support": 45469,
+      "delta_rank": 0.3240223463687151
+    },
+    {
+      "name": "Razorkin Needlehead",
+      "beta": 0.22589433193206787,
+      "beta_rank": 0.776536312849162,
+      "iwd": 0.020973190665245056,
+      "iwd_rank": 0.4581005586592179,
+      "gih": 0.561677873134613,
+      "support": 15177,
+      "delta_rank": 0.31843575418994413
+    }
+  ],
+  "demoted_vs_iwd": [
+    {
+      "name": "Commune with Evil",
+      "beta": -0.043094515800476074,
+      "beta_rank": 0.1005586592178771,
+      "iwd": 0.05301573872566223,
+      "iwd_rank": 0.8379888268156425,
+      "gih": 0.5674761533737183,
+      "support": 23118,
+      "delta_rank": -0.7374301675977654
+    },
+    {
+      "name": "Glimmerburst",
+      "beta": -0.11451250314712524,
+      "beta_rank": 0.03910614525139665,
+      "iwd": 0.03532999008893967,
+      "iwd_rank": 0.7262569832402235,
+      "gih": 0.5762198567390442,
+      "support": 48559,
+      "delta_rank": -0.6871508379888268
+    },
+    {
+      "name": "Final Vengeance",
+      "beta": 0.004011690150946379,
+      "beta_rank": 0.24022346368715083,
+      "iwd": 0.04297729954123497,
+      "iwd_rank": 0.8044692737430168,
+      "gih": 0.5679922103881836,
+      "support": 69592,
+      "delta_rank": -0.5642458100558659
+    },
+    {
+      "name": "Unable to Scream",
+      "beta": -0.03928742930293083,
+      "beta_rank": 0.11731843575418995,
+      "iwd": 0.03195495158433914,
+      "iwd_rank": 0.6703910614525139,
+      "gih": 0.5705826282501221,
+      "support": 125781,
+      "delta_rank": -0.5530726256983239
+    },
+    {
+      "name": "Come Back Wrong",
+      "beta": 0.02417745627462864,
+      "beta_rank": 0.3128491620111732,
+      "iwd": 0.054032132029533386,
+      "iwd_rank": 0.8547486033519553,
+      "gih": 0.5631266236305237,
+      "support": 14211,
+      "delta_rank": -0.5418994413407822
+    },
+    {
+      "name": "Haunted Screen",
+      "beta": -0.05805710703134537,
+      "beta_rank": 0.0893854748603352,
+      "iwd": 0.02470403164625168,
+      "iwd_rank": 0.5418994413407822,
+      "gih": 0.5239555835723877,
+      "support": 13642,
+      "delta_rank": -0.45251396648044695
+    },
+    {
+      "name": "Fanatic of the Harrowing",
+      "beta": 0.02416631020605564,
+      "beta_rank": 0.30726256983240224,
+      "iwd": 0.03498164191842079,
+      "iwd_rank": 0.7150837988826816,
+      "gih": 0.5491633415222168,
+      "support": 34541,
+      "delta_rank": -0.40782122905027934
+    },
+    {
+      "name": "Dashing Bloodsucker",
+      "beta": 0.01842176541686058,
+      "beta_rank": 0.2849162011173184,
+      "iwd": 0.03080516867339611,
+      "iwd_rank": 0.6480446927374302,
+      "gih": 0.5256482362747192,
+      "support": 18072,
+      "delta_rank": -0.36312849162011174
+    },
+    {
+      "name": "Sporogenic Infection",
+      "beta": 0.050563160330057144,
+      "beta_rank": 0.41899441340782123,
+      "iwd": 0.040884435176849365,
+      "iwd_rank": 0.770949720670391,
+      "gih": 0.5600132942199707,
+      "support": 31185,
+      "delta_rank": -0.3519553072625698
+    },
+    {
+      "name": "Under the Skin",
+      "beta": 0.11415021121501923,
+      "beta_rank": 0.5810055865921788,
+      "iwd": 0.06701276451349258,
+      "iwd_rank": 0.9162011173184358,
+      "gih": 0.602761447429657,
+      "support": 54553,
+      "delta_rank": -0.33519553072625696
+    },
+    {
+      "name": "Skullsnap Nuisance",
+      "beta": 0.014308459125459194,
+      "beta_rank": 0.2737430167597765,
+      "iwd": 0.028255747631192207,
+      "iwd_rank": 0.5921787709497207,
+      "gih": 0.5235648155212402,
+      "support": 17985,
+      "delta_rank": -0.3184357541899442
+    },
+    {
+      "name": "Seized from Slumber",
+      "beta": -0.0060575734823942184,
+      "beta_rank": 0.20670391061452514,
+      "iwd": 0.02421593852341175,
+      "iwd_rank": 0.5251396648044693,
+      "gih": 0.56223464012146,
+      "support": 30845,
+      "delta_rank": -0.31843575418994413
+    },
+    {
+      "name": "Say Its Name",
+      "beta": -0.10455521941184998,
+      "beta_rank": 0.055865921787709494,
+      "iwd": 0.014037953689694405,
+      "iwd_rank": 0.3743016759776536,
+      "gih": 0.5567736625671387,
+      "support": 82232,
+      "delta_rank": -0.31843575418994413
+    },
+    {
+      "name": "Derelict Attic // Widow's Walk",
+      "beta": 0.019388500601053238,
+      "beta_rank": 0.2905027932960894,
+      "iwd": 0.029518933966755867,
+      "iwd_rank": 0.6089385474860335,
+      "gih": 0.5365669131278992,
+      "support": 28510,
+      "delta_rank": -0.3184357541899441
+    },
+    {
+      "name": "Overgrown Zealot",
+      "beta": -0.03675491735339165,
+      "beta_rank": 0.12849162011173185,
+      "iwd": 0.020147554576396942,
+      "iwd_rank": 0.44692737430167595,
+      "gih": 0.5492422580718994,
+      "support": 36895,
+      "delta_rank": -0.3184357541899441
+    }
+  ]
+}
