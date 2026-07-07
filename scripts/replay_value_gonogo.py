@@ -35,8 +35,17 @@ Gates (mirrors Step 0 / WS1.1):
   (b) Spearman(beta_cast, GIH) < 0.95 (it's not a re-derivation of GIH).
   (c) face-plausibility (top/bottom 15 by beta — left for human review).
 
+WS3.1 confound-mitigation variants (added 2026-07-07):
+  --max-turn N   : restrict cast accumulation to user_turn_{1..N}_* columns (re-parse required;
+                   cache name encodes the limit, e.g. replay_cast.DSK.PremierDraft.full.maxturn6.npz).
+  --normalize-casts : at FIT TIME divide each game's X row by its total cast count (rows with 0
+                   casts are left as zeros). No re-parse; applied on top of the full npz. A separate
+                   .normalized.npz is written so run_outcome_eval.py --game-npz can consume it.
+
     PYTHONPATH=src .venv/bin/python scripts/replay_value_gonogo.py --set DSK --sample-rows 20000
     PYTHONPATH=src .venv/bin/python scripts/replay_value_gonogo.py --set DSK  # full run
+    PYTHONPATH=src .venv/bin/python scripts/replay_value_gonogo.py --set DSK --max-turn 6
+    PYTHONPATH=src .venv/bin/python scripts/replay_value_gonogo.py --set DSK --normalize-casts
 """
 from __future__ import annotations
 
@@ -141,11 +150,14 @@ def _resolve_manifest(hf_dir: pathlib.Path, tag: str) -> pathlib.Path:
     raise SystemExit(f"no manifest for {tag} under {hf_dir / 'manifests'}")
 
 
-def _cast_usecols(all_cols: list[str]) -> list[str]:
+def _cast_usecols(all_cols: list[str],
+                  turn_range: range | None = None) -> list[str]:
     """Return the set of cast columns to read: creatures_cast + non_creatures_cast +
-    user_instants_sorceries_cast for turns 1-30 (user only, no oppo_)."""
+    user_instants_sorceries_cast for the given turn_range (default turns 1-30, user only, no oppo_)."""
+    if turn_range is None:
+        turn_range = TURN_RANGE
     wanted: set[str] = set()
-    for t in TURN_RANGE:
+    for t in turn_range:
         for suffix in ("creatures_cast", "non_creatures_cast",
                        "user_instants_sorceries_cast"):
             col = f"user_turn_{t}_{suffix}"
@@ -191,12 +203,14 @@ def preprocess_replay(
     controls: tuple[str, ...] = REPLAY_CONTROLS,
     limit_games: int | None = None,
     batch_size: int = 20_000,
+    turn_range: range | None = None,
 ) -> dict:
     """Stream-parse the replay CSV into (X, y, C) arrays aligned to the manifest.
 
     X[i, c] = number of times card c was CAST in game i (cast-conditioned estimand).
     y[i] = won (bool as float32).
     C[i, :] = control variables (on_play, num_mulligans, user_game_win_rate_bucket).
+    turn_range: restrict to user_turn_{t}_* columns where t in turn_range (default turns 1-30).
 
     Returns dict with keys: X, y, C, card_names, control_names, n_games, n_cast_total,
     unmapped_id_fraction, n_manifest_covered, manifest_no_arena.
@@ -224,7 +238,7 @@ def preprocess_replay(
     # Read header once to determine usecols
     header_df = pd.read_csv(csv_path, nrows=0)
     all_cols = header_df.columns.tolist()
-    cast_cols = _cast_usecols(all_cols)
+    cast_cols = _cast_usecols(all_cols, turn_range=turn_range)
 
     missing_controls = [c for c in controls if c not in set(all_cols)]
     if missing_controls:
@@ -232,8 +246,9 @@ def preprocess_replay(
     if LABEL_COL not in set(all_cols):
         raise ValueError(f"label column '{LABEL_COL}' absent from {csv_path.name}")
 
+    _tr = turn_range if turn_range is not None else TURN_RANGE
     print(f"  [cast_cols] selected {len(cast_cols)} cast columns "
-          f"(user turns 1-30: creatures + non_creatures + user_instants_sorceries)")
+          f"(user turns {min(_tr)}-{max(_tr)}: creatures + non_creatures + user_instants_sorceries)")
 
     usecols = [LABEL_COL, *controls, *cast_cols]
 
@@ -316,13 +331,15 @@ def preprocess_replay(
 # ---------------------------------------------------------------------------
 
 def overlap_check(csv_path: pathlib.Path, n_rows: int = 20_000,
-                  sample_cells: int = 200) -> dict:
+                  sample_cells: int = 200,
+                  turn_range: range | None = None) -> dict:
     """Check whether user_turn_N_user_instants_sorceries_cast ⊆ non_creatures_cast per turn.
 
     Samples up to `sample_cells` nonempty turn-cells where both instants_sorceries and
     non_creatures are non-null in the same turn. Returns dict with finding.
     """
     df = pd.read_csv(csv_path, nrows=n_rows, low_memory=False)
+    _tr = turn_range if turn_range is not None else TURN_RANGE
 
     violations = 0
     checked = 0
@@ -330,7 +347,7 @@ def overlap_check(csv_path: pathlib.Path, n_rows: int = 20_000,
     is_nonempty_nc_null = 0
     total_is_nonempty = 0
 
-    for t in TURN_RANGE:
+    for t in _tr:
         nc_col = f"user_turn_{t}_non_creatures_cast"
         is_col = f"user_turn_{t}_user_instants_sorceries_cast"
         if nc_col not in df.columns or is_col not in df.columns:
@@ -374,8 +391,14 @@ def overlap_check(csv_path: pathlib.Path, n_rows: int = 20_000,
 # ---------------------------------------------------------------------------
 
 def _split_half_rho(X: np.ndarray, y: np.ndarray, C: np.ndarray,
-                    l2: float, min_support: float, label: str = "") -> tuple[float, int]:
-    """Fit on first/second half of games, correlate betas over well-supported cards."""
+                    l2: float, min_support: float, label: str = "",
+                    raw_X: np.ndarray | None = None) -> tuple[float, int]:
+    """Fit on first/second half of games, correlate betas over well-supported cards.
+
+    raw_X: if provided, use this (instead of X) to compute per-split support for the
+    well-sampled gate. Useful when X has been normalized (fractional sums are < min_support)
+    but raw cast counts are the correct support criterion.
+    """
     n = len(y)
     h = n // 2
     fits = []
@@ -384,7 +407,9 @@ def _split_half_rho(X: np.ndarray, y: np.ndarray, C: np.ndarray,
         Xi, yi, Ci = X[idx], y[idx], C[idx]
         fit = fit_card_values(Xi, yi, Ci, l2=l2)
         fits.append(fit["beta"])
-        supports.append(Xi.sum(axis=0))
+        # Use raw_X for support if provided (e.g. normalized-cast variant)
+        supp_X = raw_X[idx] if raw_X is not None else Xi
+        supports.append(supp_X.sum(axis=0))
 
     well = (supports[0] >= min_support) & (supports[1] >= min_support)
     n_well = int(well.sum())
@@ -460,12 +485,70 @@ def _load_deck_value_betas(gamevalue_path: pathlib.Path,
 # Main
 # ---------------------------------------------------------------------------
 
+def _confound_probe_ranks(beta: np.ndarray, support: np.ndarray,
+                          card_names: list[str], min_support: float) -> dict:
+    """Compute rank-percentile for the three confound-probe cards among well-supported nonlands.
+
+    Probes:
+      - Turn Inside Out  (combat trick; WS3.0 top-10 — should DROP under confound mitigation)
+      - Grab the Prize   (desperation digger; WS3.0 bottom-5 — should RISE)
+      - Glimmerburst     (desperation digger; WS3.0 bottom-10 — should RISE)
+
+    Returns dict mapping card name -> {beta, rank_among_well, n_well, percentile}.
+    Percentile = fraction of well-supported cards whose beta is LOWER (higher = better rank).
+    """
+    well_mask = (support >= min_support) & np.isfinite(beta)
+    well_betas = beta[well_mask]
+    well_names = [card_names[i] for i in range(len(card_names)) if well_mask[i]]
+    n_well = int(well_mask.sum())
+
+    probe_names = ["Turn Inside Out", "Grab the Prize", "Glimmerburst"]
+    result: dict[str, dict] = {}
+    for pname in probe_names:
+        if pname in well_names:
+            wi = well_names.index(pname)
+            pb = float(well_betas[wi])
+            # rank = number of cards with strictly lower beta (0-indexed from bottom)
+            rank = int((well_betas < pb).sum())
+            percentile = rank / max(n_well - 1, 1)
+            result[pname] = {
+                "beta": pb,
+                "rank_from_bottom": rank,  # 0 = worst
+                "rank_from_top": n_well - 1 - rank,  # 0 = best
+                "n_well": n_well,
+                "percentile": percentile,  # fraction below; 1.0 = best
+            }
+        else:
+            result[pname] = {"beta": None, "rank_from_bottom": None,
+                             "rank_from_top": None, "n_well": n_well,
+                             "percentile": None, "note": "not in well-supported set"}
+    return result
+
+
+def _load_ws30_beta(ws30_json: pathlib.Path,
+                    card_names: list[str]) -> np.ndarray | None:
+    """Load WS3.0 full-cast beta from the go/no-go JSON (top15/bottom15 only gives partial info).
+
+    The JSON does not store the full beta array, so we return None if we can't reconstruct it.
+    The caller must handle None (by refitting from the full npz if needed).
+    """
+    # The ws30 JSON has top15/bottom15 but not the full beta array.
+    return None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--set", dest="set_code", default="DSK")
     ap.add_argument("--event", dest="event_type", default="PremierDraft")
     ap.add_argument("--sample-rows", type=int, default=None,
                     help="stream only first N rows (None = full file)")
+    ap.add_argument("--max-turn", type=int, default=None,
+                    help="restrict cast accumulation to turns 1..N (WS3.1 early-cast variant)."
+                         " Triggers re-parse from the raw gz; cache name encodes the limit.")
+    ap.add_argument("--normalize-casts", action="store_true", default=False,
+                    help="fit-time transform: divide each game's X row by its total cast count"
+                         " (rows with 0 casts left as zeros). No re-parse; applied on full npz."
+                         " Also writes a .normalized.npz for run_outcome_eval.py consumption.")
     ap.add_argument("--l2", type=float, default=30.0)
     ap.add_argument("--hf-dir", default="data/hf")
     ap.add_argument("--raw-dir", default="data/raw")
@@ -473,6 +556,10 @@ def main(argv=None):
     ap.add_argument("--out", default=None,
                     help="JSON summary output path (default: /tmp/ws30_gonogo.json)")
     a = ap.parse_args(argv)
+
+    if a.max_turn is not None and a.normalize_casts:
+        raise SystemExit("--max-turn and --normalize-casts are mutually exclusive "
+                         "(run as two separate commands)")
 
     tag = f"{a.set_code}.{a.event_type}"
     hf = pathlib.Path(a.hf_dir)
@@ -491,7 +578,20 @@ def main(argv=None):
         raise SystemExit(f"missing scryfall dump {scryfall_path} — run hf pull first")
 
     # -----------------------------------------------------------------------
-    # Step 1: Download replay data
+    # Determine turn range (for --max-turn) and variant label
+    # -----------------------------------------------------------------------
+    turn_range: range | None = None
+    variant_label = "full_cast"  # WS3.0 baseline
+    if a.max_turn is not None:
+        turn_range = range(1, a.max_turn + 1)
+        variant_label = f"early_cast_turn{a.max_turn}"
+        print(f"[WS3.1 variant] --max-turn {a.max_turn}: restricting casts to turns 1-{a.max_turn}")
+    elif a.normalize_casts:
+        variant_label = "normalized_cast"
+        print("[WS3.1 variant] --normalize-casts: fit-time per-game cast-count normalization")
+
+    # -----------------------------------------------------------------------
+    # Step 1: Download replay data (short-circuits if raw gz already exists)
     # -----------------------------------------------------------------------
     sample_rows = a.sample_rows
     sample_tag = f"sample{sample_rows}" if sample_rows else "full"
@@ -503,7 +603,7 @@ def main(argv=None):
     # Step 1b: Overlap check (on first 20k rows)
     # -----------------------------------------------------------------------
     print("[1b/6] overlap check: user_instants_sorceries_cast vs non_creatures_cast ...")
-    ov = overlap_check(csv, n_rows=20_000, sample_cells=200)
+    ov = overlap_check(csv, n_rows=20_000, sample_cells=200, turn_range=turn_range)
     print(f"       conclusion={ov['conclusion']}  "
           f"violations_in_{ov['cells_checked']}_cells={ov['violations_in_sample']}  "
           f"is_nonempty_nc_null={ov['is_nonempty_nc_null']}/{ov['total_is_nonempty']}")
@@ -515,12 +615,22 @@ def main(argv=None):
               "Check cast column logic — may need deduplication.")
 
     # -----------------------------------------------------------------------
-    # Step 2: Parse into cast-count arrays
+    # Step 2: Parse into cast-count arrays (cache name encodes variant)
     # -----------------------------------------------------------------------
-    npz = cache_dir / f"replay_cast.{tag}.{sample_tag}.npz"
+    if a.max_turn is not None:
+        # New cache: encodes max-turn limit; always re-parsed from raw gz (no limit_games skip)
+        npz = cache_dir / f"replay_cast.{tag}.{sample_tag}.maxturn{a.max_turn}.npz"
+    elif a.normalize_casts:
+        # Normalization is fit-time; load the full parsed npz (no new parse needed)
+        npz = cache_dir / f"replay_cast.{tag}.{sample_tag}.npz"
+    else:
+        # WS3.0 baseline
+        npz = cache_dir / f"replay_cast.{tag}.{sample_tag}.npz"
+
     print(f"[2/6] preprocess replay -> cast-count matrix (manifest {manifest.name}) ...")
+    print(f"      cache: {npz}")
     data = preprocess_replay(csv, manifest, scryfall_path, out_npz=npz,
-                             limit_games=sample_rows)
+                             limit_games=sample_rows, turn_range=turn_range)
     X, y, C = data["X"], data["y"], data["C"]
     card_names = list(data["card_names"])
     n_games = int(data["n_games"])
@@ -534,7 +644,7 @@ def main(argv=None):
     total_cast_per_game = X.sum(axis=1)
 
     print(f"      games={n_games}  cards={n_cards}  win_rate={float(y.mean()):.3f}")
-    print(f"      CAST-COUNT SANITY (WS3.0 estimand):")
+    print(f"      CAST-COUNT SANITY ({variant_label} estimand):")
     print(f"        mean distinct cards cast/game={distinct_cast_per_game.mean():.1f}  "
           f"median={float(np.median(distinct_cast_per_game)):.1f}  "
           f"(expect ~8-20)")
@@ -545,10 +655,47 @@ def main(argv=None):
           f"(< 0.01 expected; these are tokens/variants)")
 
     # -----------------------------------------------------------------------
+    # Step 2b: Apply --normalize-casts transform (fit-time; X modified in-place copy)
+    # -----------------------------------------------------------------------
+    X_fit = X  # default: use raw cast counts
+    if a.normalize_casts:
+        print("[2b/6] --normalize-casts: dividing each game's X row by total cast count ...")
+        row_totals = total_cast_per_game  # already computed above (sum per game)
+        nonzero_mask = row_totals > 0
+        X_fit = X.copy()
+        # Divide nonzero rows by their cast total; zero-cast rows stay zero (no-op)
+        X_fit[nonzero_mask] = (X_fit[nonzero_mask].astype(np.float64)
+                               / row_totals[nonzero_mask, np.newaxis]).astype(np.float32)
+        # Support for normalized variant = sum of normalized values (continuous now)
+        # For gate/percentile purposes use the same raw support (card still needs to appear)
+        # We keep support = raw X.sum(axis=0) for well-sampled gate (unchanged)
+        print(f"      {nonzero_mask.sum()} / {n_games} games normalized "
+              f"({(~nonzero_mask).sum()} zero-cast games left as zeros)")
+
+        # Write the normalized matrix as a new npz for run_outcome_eval.py consumption
+        norm_npz = cache_dir / f"replay_cast.{tag}.{sample_tag}.normalized.npz"
+        if not norm_npz.exists():
+            print(f"      writing normalized npz -> {norm_npz}")
+            norm_npz.parent.mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(
+                norm_npz,
+                X=X_fit, y=y, C=C,
+                card_names=data["card_names"],
+                control_names=data["control_names"],
+                n_games=np.int64(n_games),
+                n_cast_total=np.int64(n_cast_total),
+                unmapped_id_fraction=np.float64(unmapped_frac),
+                n_manifest_covered=data["n_manifest_covered"],
+                manifest_no_arena=data["manifest_no_arena"],
+            )
+        else:
+            print(f"      normalized npz already exists: {norm_npz}")
+
+    # -----------------------------------------------------------------------
     # Step 3: Fit L2 logistic regression
     # -----------------------------------------------------------------------
     print(f"[3/6] fit L2 logistic regression (l2={a.l2}) ...")
-    fit = fit_card_values(X, y, C, l2=a.l2)
+    fit = fit_card_values(X_fit, y, C, l2=a.l2)
     ctrl = dict(zip(list(data["control_names"]), fit["control_coef"].tolist()))
     beta = fit["beta"]
     print(f"      loss={fit['loss']:.4f}  train_acc={fit['train_acc']:.3f}"
@@ -579,6 +726,7 @@ def main(argv=None):
     # 4b. Spearman vs full-data deck_value
     spearman_vs_dv = float("nan")
     spearman_vs_dv_well = float("nan")
+    beta_dv: np.ndarray | None = None
     if gamevalue_path.exists():
         beta_dv = _load_deck_value_betas(gamevalue_path, manifest)
         spearman_vs_dv = _rank_corr(beta, beta_dv)
@@ -589,10 +737,36 @@ def main(argv=None):
     else:
         print(f"      [warn] {gamevalue_path} not found — skipping vs deck_value comparison")
 
+    # 4b2. WS3.1: Spearman vs WS3.0 full-cast beta (only for variants, not baseline)
+    spearman_vs_ws30 = float("nan")
+    ws30_beta: np.ndarray | None = None
+    if a.max_turn is not None or a.normalize_casts:
+        ws30_npz = cache_dir / f"replay_cast.{tag}.{sample_tag}.npz"
+        ws30_json_path = pathlib.Path("docs/results/ws30-replay-gonogo.json")
+        if ws30_npz.exists():
+            print(f"      [WS3.1] loading WS3.0 full-cast beta from {ws30_npz.name} ...")
+            # Refit from the full npz (the JSON only has top/bottom 15, not full beta)
+            z30 = np.load(ws30_npz, allow_pickle=True)
+            X30, y30, C30 = z30["X"].astype(np.float32), z30["y"].astype(np.float32), z30["C"].astype(np.float32)
+            fit30 = fit_card_values(X30, y30, C30, l2=a.l2)
+            ws30_beta = fit30["beta"]
+            spearman_vs_ws30 = _rank_corr(
+                np.where(support >= min_support, beta, np.nan),
+                np.where(support >= min_support, ws30_beta, np.nan))
+            print(f"      Spearman(this_beta, WS3.0_full_cast_beta)={spearman_vs_ws30:.3f}  "
+                  f"(well-supported only)")
+        else:
+            print(f"      [WS3.1] WS3.0 full-cast npz not found at {ws30_npz} — "
+                  "skipping vs-WS3.0 comparison")
+
     # 4c. Split-half reliability
-    sh_rho_replay, n_well_sh = _split_half_rho(X, y, C, l2=a.l2,
-                                                min_support=min_support,
-                                                label="replay_cast")
+    # For normalized variant: fit on X_fit (normalized) but gate well-sampled on raw X counts
+    sh_rho_replay, n_well_sh = _split_half_rho(
+        X_fit, y, C, l2=a.l2,
+        min_support=min_support,
+        label=f"replay_cast[{variant_label}]",
+        raw_X=(X if a.normalize_casts else None),
+    )
 
     # 4d. Matched-n split-half on game_data for fairness comparison
     sh_rho_matched = float("nan")
@@ -603,20 +777,33 @@ def main(argv=None):
     else:
         print(f"      [warn] {game_npz_full} not found — skipping matched-n comparison")
 
-    # 4e. Top/bottom 15 by beta (well-sampled)
-    top15, bottom15 = _topbottom(beta, support, card_names, min_support)
-    print(f"\n  Top 15 by beta_cast (well-sampled, support>={min_support:.0f} total casts):")
+    # 4e. Top/bottom 10 by beta (well-sampled) — WS3.1 uses 10 instead of 15
+    n_topbot = 10 if (a.max_turn is not None or a.normalize_casts) else 15
+    top15, bottom15 = _topbottom(beta, support, card_names, min_support, n=n_topbot)
+    print(f"\n  Top {n_topbot} by beta_cast ({variant_label}, well-sampled, support>={min_support:.0f}):")
     for r in top15:
         print(f"    {r['name'][:38]:38s}  beta={r['beta']:+.3f}  n_cast={r['support']}")
-    print(f"\n  Bottom 15 by beta_cast (well-sampled):")
+    print(f"\n  Bottom {n_topbot} by beta_cast ({variant_label}, well-sampled):")
     for r in bottom15:
         print(f"    {r['name'][:38]:38s}  beta={r['beta']:+.3f}  n_cast={r['support']}")
+
+    # 4f. WS3.1 confound probes: rank of Turn Inside Out, Grab the Prize, Glimmerburst
+    confound_probes = _confound_probe_ranks(beta, support, card_names, min_support)
+    print(f"\n  WS3.1 confound probes ({variant_label}):")
+    for pname, pdata in confound_probes.items():
+        if pdata["beta"] is not None:
+            print(f"    {pname:<30s}  beta={pdata['beta']:+.3f}  "
+                  f"rank_from_top={pdata['rank_from_top']}  "
+                  f"percentile={pdata['percentile']:.3f}  "
+                  f"(n_well={pdata['n_well']})")
+        else:
+            print(f"    {pname:<30s}  not in well-supported set")
 
     # -----------------------------------------------------------------------
     # Step 5: Gates
     # -----------------------------------------------------------------------
     print("\n" + "=" * 70)
-    print("GATES (WS3.0 — cast-conditioned value)")
+    print(f"GATES ({variant_label} — cast-conditioned value)")
     print("=" * 70)
 
     gate_a_pass = sh_rho_replay >= WS11_DSK_SPLIT_HALF_RHO
@@ -634,7 +821,7 @@ def main(argv=None):
           f"< {GIH_STOP_THRESHOLD} threshold  "
           f"-> {'PASS (new signal)' if gate_b_pass else 'FAIL (re-derivation)'}")
 
-    print(f"\n  (c) Face-plausibility: review top/bottom 15 above (human gate).")
+    print(f"\n  (c) Face-plausibility: review top/bottom {n_topbot} above (human gate).")
 
     overall = "PROCEED" if (gate_a_pass and gate_b_pass) else "NO-GO"
     print(f"\n  ==> DECISION: {overall}  "
@@ -646,8 +833,11 @@ def main(argv=None):
     # Write JSON summary
     # -----------------------------------------------------------------------
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
+    payload: dict = {
         "set": a.set_code, "event": a.event_type, "sample_rows": a.sample_rows,
+        "variant": variant_label,
+        "max_turn": a.max_turn,
+        "normalize_casts": a.normalize_casts,
         "n_games": n_games,
         "n_cast_total": n_cast_total,
         "mean_distinct_cast_per_game": float(distinct_cast_per_game.mean()),
@@ -666,6 +856,7 @@ def main(argv=None):
         "n_well_sampled": cmp["n_well_sampled"],
         "spearman_vs_deck_value_full": spearman_vs_dv,
         "spearman_vs_deck_value_full_well": spearman_vs_dv_well,
+        "spearman_vs_ws30_full_cast": spearman_vs_ws30,
         "split_half_rho_replay_cast": sh_rho_replay,
         "split_half_n_well": n_well_sh,
         "split_half_rho_matched_game_data": sh_rho_matched,
@@ -673,8 +864,9 @@ def main(argv=None):
         "gate_a_split_half": bool(gate_a_pass),
         "gate_b_gih_divergence": bool(gate_b_pass),
         "decision": overall,
-        "top15": top15,
-        "bottom15": bottom15,
+        "top10": top15,  # key name reflects n_topbot (top10 for WS3.1 variants)
+        "bottom10": bottom15,
+        "confound_probes": confound_probes,
         "promoted_vs_iwd": cmp["promoted_vs_iwd"],
         "demoted_vs_iwd": cmp["demoted_vs_iwd"],
     }

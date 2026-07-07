@@ -160,7 +160,7 @@ many observations per game instead of one `won` bit (higher effective sample siz
     deck_value's (WS1.1 result), (b) Spearman vs GIH **< 0.95** (it's a new signal, not a
     re-derivation), and (c) be face-plausible (spot-check top/bottom 15 cards).
   - If NO-GO: write it up and stop — do not sink further time.
-- [ ] **WS3.1 — (gated on 3.0) replay-β as eval + target.** Repeat WS1.2/WS1.3 with replay-β. *(now unlocked; design must address the cast-selection confound)*
+- [x] **WS3.1 — (gated on 3.0) replay-β as eval + target.** *(2026-07-07 — Stage 1 done locally $0: headline verdict RULER-ROBUST, model beats humans 70-82% under all cast rulers incl. confound-mitigated (deck_value had flattered it: 92-98%); gih_greedy caveat universal; Stage 2 teacher re-test declined — WS1.3 subsumption logic + budget; see [results/ws31-cast-adjudicator.md])*
 
 ---
 
