@@ -146,3 +146,21 @@ table.breakdown .pip { width: 11px; height: 11px; vertical-align: middle; }
 .mvcard .mult, .dcname .mult { color: #ffd166; font-weight: 700; }   /* ×N multiples badge */
 .viewdeck { margin: 8px 0; padding: 8px 14px; background: #5b8def; color: #fff; border: none; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; }
 .viewdeck:hover { background: #4a7de0; }
+
+/* Day-0 mode toggle (controls bar) + active badge (pack area) */
+#day0Wrap { display: inline-flex; align-items: center; }
+.day0toggle {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  color: #aeb8c7; font-size: 13px; user-select: none;
+  padding: 4px 10px; border-radius: 6px; border: 1px solid #3a4150;
+  background: #1a2030; white-space: nowrap;
+}
+.day0toggle:hover { border-color: #f5a623; }
+.day0toggle input[type="checkbox"] { accent-color: #f5a623; width: 14px; height: 14px; cursor: pointer; }
+.day0toggle .day0sub { color: #8b97a8; font-size: 11px; }
+/* Badge shown in the pack-title area while day-0 is active */
+.day0badge {
+  display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 8px; border-radius: 5px; margin-left: 10px;
+  background: rgba(245,166,35,.18); color: #f5a623; border: 1px solid rgba(245,166,35,.4);
+}

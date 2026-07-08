@@ -12,10 +12,24 @@ const S = {                                              // global state
   session: null, meta: null, cards: [], byRarity: {}, qz: [], realPacks: null, playprob: null, sampleDecks: null, emb: null, embValid: null, MAXP: 45, MAXK: 15,
   seats: [], packs: [], round: 0, pick: 0, dir: 1, humanAgg: 0, botAgg: 3, busy: false,
   stats: null, seen: [],
+  // Day-0 mode (WS2.4): no 17lands data, bots blend LLM teacher prior at alpha=alpha_recommended
+  day0Data: null,       // raw day0.json payload {set, source, alpha_recommended, scores}
+  day0Available: false, // true when day0.json loaded successfully for the current set
+  day0Want: false,      // user toggle state
 };
 
 const $ = (id) => document.getElementById(id);
 const setStatus = (t) => { $("status").textContent = t; };
+
+// ---- z-score helper (reused by normal load and day-0 override) --------------------------------
+// Computes per-card z-scored quality from the cards array's current .q values.
+// Cards with null/non-finite q map to 0 (neutral), matching deploy.Drafter behaviour.
+function computeQz(cards) {
+  const qs = cards.map((c) => c.q).filter((v) => v != null && isFinite(v));
+  const mu = qs.reduce((a, b) => a + b, 0) / Math.max(qs.length, 1);
+  const sd = Math.sqrt(qs.reduce((a, b) => a + (b - mu) ** 2, 0) / Math.max(qs.length, 1)) || 1;
+  return cards.map((c) => (c.q == null || !isFinite(c.q)) ? 0 : (c.q - mu) / sd);
+}
 
 // ---- load -------------------------------------------------------------------------------------
 async function loadSet(setCode) {
@@ -37,21 +51,111 @@ async function loadSet(setCode) {
   const session = await ort.InferenceSession.create(`${meta.onnx}`, { executionProviders: ["wasm"] });
   const sampleDecks = await j(`data/${setCode}.sampledecks.json`); // real 17lands decks for the doctor
   const eb = await j(`data/${setCode}.emb.json`);                  // per-card dev-net embeddings ("plays like")
+  const day0Raw = await j(`data/${setCode}.day0.json`);            // day-0 LLM teacher scores (optional)
   if (myLoad !== S._loadId) return;                               // superseded by a later load -> drop results
   // apply ALL set state atomically (after every await), so the running model always matches the cards
   S.meta = meta; S.cards = cards; S.MAXP = meta.max_pool; S.MAXK = meta.max_pack;
   S.realPacks = realPacks; S.playprob = playprob; S.session = session;
   S.sampleDecks = sampleDecks; S.emb = eb ? eb.emb : null; S.embValid = eb ? eb.valid : null; S._sim = {};
-  // z-score the dial signal (deck_value) over rated cards, like deploy.Drafter
-  const qs = cards.map((c) => c.q).filter((v) => v != null && isFinite(v));
-  const mu = qs.reduce((a, b) => a + b, 0) / Math.max(qs.length, 1);
-  const sd = Math.sqrt(qs.reduce((a, b) => a + (b - mu) ** 2, 0) / Math.max(qs.length, 1)) || 1;
-  S.qz = cards.map((c) => (c.q == null || !isFinite(c.q)) ? 0 : (c.q - mu) / sd);
+  S.day0Data = day0Raw || null;
+  S.day0Available = !!(day0Raw && day0Raw.scores);
+  // z-score the dial signal (deck_value → .q) over rated cards, like deploy.Drafter
+  S.qz = computeQz(cards);
   S.byRarity = { rare: [], mythic: [], uncommon: [], common: [] };
   cards.forEach((c) => (S.byRarity[c.rarity] || S.byRarity.common).push(c.i));
+
+  // Day-0 override (applied at the END of the atomic block, after normal state is set):
+  // Replace every card's q/deck_value/gih/iwd with the LLM teacher score and null out
+  // all 17lands-derived data. Recompute qz. Set botAgg = alpha_recommended so bots blend
+  // the teacher prior at the calibrated dial value (WS2.4: alpha≈4 closes ~20% day-0 gap).
+  if (S.day0Want && S.day0Available) {
+    const d0 = S.day0Data;
+    cards.forEach((c) => {
+      // Replace q (the dial signal) with the LLM score (0-10); null out 17lands fields.
+      c.q = (d0.scores[c.name] !== undefined) ? d0.scores[c.name] : null;
+      c.deck_value = null;   // no 17lands deck_value on day 0
+      c.gih = null;
+      c.iwd = null;
+    });
+    S.qz = computeQz(cards);   // re-z-score on the new q values
+    // Null out all 17lands-dependent subsystems
+    S.playprob = null;          // deck builder falls back to qz sort (see seatSummary)
+    S.emb = null;               // embeddings derive from training data; keep null in true day-0 spirit
+    S.embValid = null;
+    S.sampleDecks = null;       // no real 17lands sample decks to doctor against
+    // Set bot aggressiveness to the recommended alpha from WS2.4 (≈4), so bots blend
+    // the LLM teacher prior at the calibrated strength. User's humanAgg slider still works.
+    S.botAgg = d0.alpha_recommended;
+    // Sync the botAgg slider display to the forced value
+    const botAggEl = $("botAgg"); if (botAggEl) { botAggEl.value = S.botAgg; $("botAggVal").textContent = S.botAgg; }
+  } else {
+    // Restore botAgg to whatever the slider says when day-0 is OFF
+    S.botAgg = +($("botAgg") ? $("botAgg").value : 3);
+  }
+
+  updateDay0Toggle(setCode);
+  renderDay0Badge();
   if (typeof initDoctor === "function") initDoctor();
   setStatus(`${setCode} ready · model emb${meta.emb_dim}/h${meta.enc_hidden} · ${cards.length} cards` +
-    (meta.target_in_train ? "" : " · (held-out: model never trained on this set)"));
+    (meta.target_in_train ? "" : " · (held-out: model never trained on this set)") +
+    (S.day0Want && S.day0Available ? " · DAY-0 MODE" : ""));
+}
+
+// ---- Day-0 toggle UI -------------------------------------------------------------------------
+// Renders (or updates) the day-0 toggle button next to the set selector; shown only when
+// day0.json is available for the loaded set. The badge in #packTitle area is updated by
+// renderDay0Badge() which is called from renderHumanPack and startDraft.
+function updateDay0Toggle(setCode) {
+  let wrap = $("day0Wrap");
+  if (!wrap) {
+    // Create the toggle element once; insert after the set selector label
+    wrap = document.createElement("span");
+    wrap.id = "day0Wrap";
+    const controls = document.querySelector(".controls");
+    const setLabel = $("setSel") && $("setSel").closest("label");
+    if (setLabel && controls) controls.insertBefore(wrap, setLabel.nextSibling);
+    else if (controls) controls.insertBefore(wrap, controls.firstChild);
+  }
+  if (!S.day0Available) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  const src = S.day0Data ? S.day0Data.source : "";
+  wrap.innerHTML =
+    `<label class="day0toggle" title="Simulate release day: no 17lands play data. Bots blend LLM-prior at alpha=${S.day0Data ? S.day0Data.alpha_recommended : 4} (WS2.4: closes ~20% of the oracle gap). Pick model (ONNX) unchanged.">` +
+    `<input type="checkbox" id="day0Check" ${S.day0Want ? "checked" : ""}> Day-0 mode` +
+    `<span class="day0sub"> — LLM priors, no play data (${src})</span>` +
+    `</label>`;
+  $("day0Check").onchange = async (e) => {
+    // If a draft is in progress, confirm before discarding it
+    if (S.seats && S.seats.length && S.seats[HUMAN] && S.seats[HUMAN].pool.length > 0) {
+      if (!confirm("Switching Day-0 mode will start a fresh draft. Discard the current draft?")) {
+        e.target.checked = S.day0Want; // revert checkbox
+        return;
+      }
+    }
+    S.day0Want = e.target.checked;
+    await loadSet($("setSel").value);
+  };
+}
+
+// Renders the visible day-0 badge near the pack title (shown while day-0 is active).
+function renderDay0Badge() {
+  let badge = $("day0Badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "day0Badge";
+    badge.className = "day0badge";
+    const packhead = document.querySelector(".packhead");
+    if (packhead) packhead.appendChild(badge);
+  }
+  if (S.day0Want && S.day0Available) {
+    badge.textContent = "DAY-0 — LLM priors, no play data";
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
 }
 
 // ---- booster generation -----------------------------------------------------------------------
@@ -112,7 +216,10 @@ const softmax = (a) => { const m = Math.max(...a), e = a.map((x) => Math.exp(x -
 
 // ---- draft loop ---------------------------------------------------------------------------------
 async function startDraft() {
-  S.humanAgg = +$("humanAgg").value; S.botAgg = +$("botAgg").value;
+  S.humanAgg = +$("humanAgg").value;
+  // In day-0 mode botAgg was already forced to alpha_recommended in loadSet; don't overwrite it.
+  if (!(S.day0Want && S.day0Available)) S.botAgg = +$("botAgg").value;
+  renderDay0Badge();
   S.seats = Array.from({ length: N_SEATS }, (_, i) => ({
     pool: [], isHuman: i === HUMAN,
     agg: i === HUMAN ? 0 : Math.random() * S.botAgg,      // each bot its own aggressiveness
@@ -228,13 +335,23 @@ function buildSpellsPlayprob(pool) {
 
 function seatSummary(pool) {
   // build the deck from the best nonland spells: P(played|pool) if available (learned buildability,
-  // ~2-color), else the context-free deck_value sort. Land count from the chosen spells' curve.
-  const nonland = S.playprob
-    ? buildSpellsPlayprob(pool)
-    : pool.filter((i) => S.cards[i].t !== "land" && S.cards[i].deck_value != null)
-      .sort((a, b) => S.cards[b].deck_value - S.cards[a].deck_value);
+  // ~2-color), else the context-free sort. In day-0 mode S.playprob is null and deck_value is also
+  // null, so the fallback sorts by S.qz (z-scored LLM teacher score) instead of deck_value — that
+  // avoids an empty nonland list that would break recommendLands and the pod ranking table.
+  let nonland;
+  if (S.playprob) {
+    nonland = buildSpellsPlayprob(pool);
+  } else {
+    // Day-0: deck_value is all-null; sort by qz (teacher signal). Normal fallback also used when
+    // playprob absent but deck_value present; qz is always computed so this is always safe.
+    nonland = pool
+      .filter((i) => S.cards[i].t !== "land")
+      .sort((a, b) => S.qz[b] - S.qz[a]);
+  }
   const { lands, avgCmc } = recommendLands(nonland.slice(0, 23).map((i) => S.cards[i].cmc || 0));
   const play = nonland.slice(0, 40 - lands);
+  // avg uses deck_value when available; in day-0 all deck_values are null so avg stays 0 (harmless —
+  // the pod ranking comparison shows "0.000" uniformly, which is honest given no play data).
   const avg = play.length ? play.reduce((a, i) => a + (S.cards[i].deck_value || 0), 0) / play.length : 0;
   // colors off the BUILT deck (not the whole pool) — the deck the model would actually register/run
   const cc = {}; play.forEach((i) => (S.cards[i].ci || "").split("").forEach((c) => c !== "C" && (cc[c] = (cc[c] || 0) + 1)));
@@ -301,6 +418,7 @@ function finishDraft() {
 
 // ---- rendering ----------------------------------------------------------------------------------
 function renderHumanPack(logits, emptyLogits) {
+  renderDay0Badge();
   const pack = S.packs[HUMAN];
   const scores = eff(logits, pack, S.humanAgg), probs = softmax(scores), top = argmax(scores);
   // baseline: same pack scored against an EMPTY pool -> delta shows how your pool shifted each card
