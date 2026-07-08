@@ -1,0 +1,127 @@
+{
+  "mode": "coldstart",
+  "embedder": "all-MiniLM-L6-v2",
+  "pool": "set_transformer",
+  "n_train_sets": 4,
+  "train_cards": 1294,
+  "holdout": {
+    "parquet": "data/hf/draft/DSK.PremierDraft.sample60000.parquet",
+    "n_cards": 286,
+    "frac_cards_novel": 0.9755244851112366,
+    "human_wr_agreement": 0.2981179937701677
+  },
+  "baseline": {
+    "alpha": 0.0,
+    "top1": 0.5733666666666667,
+    "novel_top1": 0.5580396724674467,
+    "wr_agreement": 0.25225225225225223,
+    "avg_pick_wr": 0.5466650457417443
+  },
+  "oracle_sweep": [
+    {
+      "alpha": 0.5,
+      "top1": 0.5892833333333334,
+      "novel_top1": 0.5745206098642235,
+      "wr_agreement": 0.3094771790423964,
+      "avg_pick_wr": 0.5519648071206502
+    },
+    {
+      "alpha": 1.0,
+      "top1": 0.5930833333333333,
+      "novel_top1": 0.5784496097077589,
+      "wr_agreement": 0.3656575830488874,
+      "avg_pick_wr": 0.5562174822236067
+    },
+    {
+      "alpha": 2.0,
+      "top1": 0.5766833333333333,
+      "novel_top1": 0.5615862032996645,
+      "wr_agreement": 0.4643836382966818,
+      "avg_pick_wr": 0.5620621284513873
+    },
+    {
+      "alpha": 4.0,
+      "top1": 0.5257833333333334,
+      "novel_top1": 0.5094139531649311,
+      "wr_agreement": 0.6028575159009941,
+      "avg_pick_wr": 0.5678238215734795
+    }
+  ],
+  "train_in_set_top1": 0.6191865310885147,
+  "teachers": {
+    "DSK.heuristic.ratings": {
+      "coldstart_sweep": [
+        {
+          "alpha": 0.5,
+          "top1": 0.5602166666666667,
+          "novel_top1": 0.5450878809478278,
+          "wr_agreement": 0.2388226736052823,
+          "avg_pick_wr": 0.5452457760180667
+        },
+        {
+          "alpha": 1.0,
+          "top1": 0.5369,
+          "novel_top1": 0.521566036751795,
+          "wr_agreement": 0.22524387741779045,
+          "avg_pick_wr": 0.5438868518039023
+        },
+        {
+          "alpha": 2.0,
+          "top1": 0.48356666666666664,
+          "novel_top1": 0.4672032822795153,
+          "wr_agreement": 0.20386846473802994,
+          "avg_pick_wr": 0.5417513625583149
+        },
+        {
+          "alpha": 4.0,
+          "top1": 0.41683333333333333,
+          "novel_top1": 0.3985153248378853,
+          "wr_agreement": 0.17618861097121966,
+          "avg_pick_wr": 0.5390733298054678
+        }
+      ],
+      "teacher_vs_real": {
+        "n": 265,
+        "spearman": 0.08120107300842158,
+        "pearson": 0.14864091267695947
+      }
+    },
+    "DSK.cached_agent-claude.ratings": {
+      "coldstart_sweep": [
+        {
+          "alpha": 0.5,
+          "top1": 0.5755166666666667,
+          "novel_top1": 0.5596043184228369,
+          "wr_agreement": 0.26943092160483467,
+          "avg_pick_wr": 0.547824982832783
+        },
+        {
+          "alpha": 1.0,
+          "top1": 0.5702666666666667,
+          "novel_top1": 0.5538151283878932,
+          "wr_agreement": 0.2844832410049801,
+          "avg_pick_wr": 0.5487011870621299
+        },
+        {
+          "alpha": 2.0,
+          "top1": 0.5477,
+          "novel_top1": 0.5299108151805427,
+          "wr_agreement": 0.30337791207356424,
+          "avg_pick_wr": 0.5496373136304943
+        },
+        {
+          "alpha": 4.0,
+          "top1": 0.4998,
+          "novel_top1": 0.47977260478781664,
+          "wr_agreement": 0.32525693395258615,
+          "avg_pick_wr": 0.5505204419939883
+        }
+      ],
+      "teacher_vs_real": {
+        "n": 272,
+        "spearman": 0.4631777491013435,
+        "pearson": 0.45513884257903786
+      }
+    }
+  }
+}

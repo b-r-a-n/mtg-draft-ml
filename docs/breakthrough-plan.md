@@ -133,7 +133,7 @@ most and the model is weakest. Harness for everything here: **rotated LOSO** (3 
     co-pick/co-play on nested19 (positive pairs: same-deck cards from game_data `deck_` columns;
     in-pack negatives — NOT global negatives, see ground rule 7).
   - Freeze after tuning; rebuild cache; same harness/gate.
-- [ ] **WS2.4 — Run the cold-start scaffold to a number.** *(optional — survives the closure)*
+- [x] **WS2.4 — Run the cold-start scaffold to a number.** *(2026-07-07 — first day-0 number: content-only LLM teacher closes ~20% of the oracle−baseline WR-agree gap on DSK (19/21/19% across seeds, heuristic floor −4%); upper bound due to training-data leak; $0; see [results/ws24-coldstart.md])*
   - `src/mtg_draft_ml/distill/teacher.py` + `coldstart.py` + `scripts/pod_coldstart.py` exist as
     scaffolds (DD-004 #4) but were never run to a result. Define day-0 eval: ZERO target-set picks,
     model + LLM-teacher blend vs model alone, on the rotated holdouts.

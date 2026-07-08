@@ -64,7 +64,8 @@ def _rank_corr(a: np.ndarray, b: np.ndarray) -> dict:
 
 
 def run_coldstart(
-    train_specs: list[dict], holdout_spec: dict, coldstart_ratings: str, holdout_ratings: str,
+    train_specs: list[dict], holdout_spec: dict,
+    coldstart_ratings: str | list[str], holdout_ratings: str,
     *, wr_field: str = "ever_drawn_win_rate", blend_alphas: list[float] | None = None,
     embedder: str = "all-MiniLM-L6-v2", text: bool = True,
     emb_dim: int = 256, enc_hidden: int = 512, enc_layers: int = 3, dropout: float = 0.1,
@@ -76,10 +77,20 @@ def run_coldstart(
 ) -> dict:
     """Train on train_specs, then compare baseline / LLM-coldstart / real-oracle picks on holdout.
 
-    `coldstart_ratings` is the teacher's ratings JSON (field=RATING_FIELD); `holdout_ratings` is the
-    real 17lands ratings for the held-out set (field=`wr_field`) — used both as the upper-bound blend
-    and as the truth the metrics are scored against.
+    `coldstart_ratings` is the teacher's ratings JSON (field=RATING_FIELD), or a LIST of such paths
+    to evaluate multiple teacher arms on the SAME trained model. `holdout_ratings` is the real
+    17lands ratings for the held-out set (field=`wr_field`) — used both as the upper-bound blend and
+    as the truth the metrics are scored against.
+
+    When `coldstart_ratings` is a single str the result dict has the legacy keys ``coldstart_sweep``
+    and ``teacher_vs_real`` for 100% backward compatibility. When it is a list, those keys are
+    replaced by a ``teachers`` dict keyed by the ratings filename stem, each containing
+    ``coldstart_sweep`` and ``teacher_vs_real`` for that arm.
     """
+    # Normalise: track whether caller passed a single str so we can restore compat shape.
+    _single = isinstance(coldstart_ratings, str)
+    ratings_list: list[str] = [coldstart_ratings] if _single else list(coldstart_ratings)
+
     blend_alphas = blend_alphas if blend_alphas is not None else [0.5, 1.0, 2.0, 4.0]
     emb = get_embedder(embedder)
     gmat, ginfo, key_to_idx, l2gs = build_multiset_content(train_specs, embedder=emb, text=text)
@@ -114,9 +125,9 @@ def run_coldstart(
     model.set_content(torch.from_numpy(hmat))
     novel = novel_mask_for_holdout(holdout_spec["manifest"], set(key_to_idx))
     real_wr = align_winrates(holdout_spec["manifest"], holdout_ratings, field=wr_field)  # the truth
-    teacher_q, teacher_raw = _quality_tensor(holdout_spec["manifest"], coldstart_ratings,
-                                             RATING_FIELD, dev)
     oracle_q, _ = _quality_tensor(holdout_spec["manifest"], holdout_ratings, wr_field, dev)
+
+    import pathlib
 
     def ev(quality=None, alpha=0.0):
         m = evaluate_on_set(model, holdout_spec["parquet"], dev, novel_card=novel,
@@ -124,10 +135,17 @@ def run_coldstart(
         return {"alpha": alpha, "top1": m["top1"], "novel_top1": m.get("novel_top1"),
                 "wr_agreement": m.get("wr_agreement_model"), "avg_pick_wr": m.get("avg_pick_wr_model")}
 
-    baseline = ev()                                                  # alpha=0, no quality blend
-    coldstart = [ev(teacher_q, a) for a in blend_alphas]             # LLM teacher signal
-    oracle = [ev(oracle_q, a) for a in blend_alphas]                 # real-data upper bound
-    corr = _rank_corr(teacher_raw, real_wr)
+    baseline = ev()                           # alpha=0, no quality blend — evaluated once
+    oracle = [ev(oracle_q, a) for a in blend_alphas]   # real-data upper bound — evaluated once
+
+    # Evaluate each teacher arm on the SAME trained model.
+    teachers_out: dict[str, dict] = {}
+    for rpath in ratings_list:
+        stem = pathlib.Path(rpath).stem
+        teacher_q, teacher_raw = _quality_tensor(holdout_spec["manifest"], rpath, RATING_FIELD, dev)
+        coldstart_sweep = [ev(teacher_q, a) for a in blend_alphas]
+        corr = _rank_corr(teacher_raw, real_wr)
+        teachers_out[stem] = {"coldstart_sweep": coldstart_sweep, "teacher_vs_real": corr}
 
     results = {
         "mode": "coldstart", "embedder": embedder, "pool": pool,
@@ -135,13 +153,21 @@ def run_coldstart(
         "holdout": {"parquet": holdout_spec["parquet"], "n_cards": hinfo["n_cards"],
                     "frac_cards_novel": float(novel.float().mean()),
                     "human_wr_agreement": None},
-        "teacher_vs_real": corr,
-        "baseline": baseline, "coldstart_sweep": coldstart, "oracle_sweep": oracle,
+        "baseline": baseline, "oracle_sweep": oracle,
         "train_in_set_top1": best["top1"],
     }
     # human WR-agreement reference: the imitation floor the model+teacher must beat on winning picks
     href = evaluate_on_set(model, holdout_spec["parquet"], dev, card_wr=real_wr)
     results["holdout"]["human_wr_agreement"] = href.get("wr_agreement_human")
+
+    if _single:
+        # Backward-compatible shape: hoist the single teacher's keys to the top level.
+        single = next(iter(teachers_out.values()))
+        results["coldstart_sweep"] = single["coldstart_sweep"]
+        results["teacher_vs_real"] = single["teacher_vs_real"]
+    else:
+        results["teachers"] = teachers_out
+
     _print_coldstart(results)
     if out_json:
         json.dump(results, open(out_json, "w"), indent=2, default=float)
@@ -155,28 +181,41 @@ def _best(sweep: list[dict], key: str) -> dict:
 
 
 def _print_coldstart(r: dict):
-    h, c = r["holdout"], r["teacher_vs_real"]
+    h = r["holdout"]
     b = r["baseline"]
     print("\n=== Cold-start distillation report ===")
     print(f"embedder={r['embedder']} pool={r['pool']} train_sets={r['n_train_sets']} "
           f"train_cards={r['train_cards']}")
     print(f"held-out new set: {h['n_cards']} cards ({h['frac_cards_novel']*100:.0f}% novel)")
-    print(f"teacher vs real 17lands: spearman={c['spearman']:.3f} pearson={c['pearson']:.3f} "
-          f"(n={c['n']} cards rated by both)")
-    print(f"\n  {'policy':<22}{'best_alpha':>11}{'WR-agree':>10}{'avg_pick_WR':>13}{'top1':>8}")
-    bw = _best(r["coldstart_sweep"], "wr_agreement")
+    print(f"\n  {'policy':<28}{'best_alpha':>11}{'WR-agree':>10}{'avg_pick_WR':>13}{'top1':>8}")
     ow = _best(r["oracle_sweep"], "wr_agreement")
-    print(f"  {'no-data baseline':<22}{'0':>11}{b['wr_agreement']:>10.4f}"
+    print(f"  {'no-data baseline':<28}{'0':>11}{b['wr_agreement']:>10.4f}"
           f"{b['avg_pick_wr']:>13.4f}{b['top1']:>8.4f}")
-    print(f"  {'LLM cold-start':<22}{str(bw['alpha']):>11}{bw['wr_agreement']:>10.4f}"
-          f"{bw['avg_pick_wr']:>13.4f}{bw['top1']:>8.4f}")
-    print(f"  {'real-data oracle':<22}{str(ow['alpha']):>11}{ow['wr_agreement']:>10.4f}"
-          f"{ow['avg_pick_wr']:>13.4f}{ow['top1']:>8.4f}")
+
     gap = ow["wr_agreement"] - b["wr_agreement"]
-    closed = (bw["wr_agreement"] - b["wr_agreement"]) / gap if gap > 1e-9 else float("nan")
+
+    # Resolve teacher arms: either legacy top-level keys or multi-arm "teachers" dict.
+    if "teachers" in r:
+        arms: dict[str, dict] = r["teachers"]
+    else:
+        # backward-compat single-arm shape
+        arms = {"LLM cold-start": {"coldstart_sweep": r["coldstart_sweep"],
+                                   "teacher_vs_real": r["teacher_vs_real"]}}
+
+    for arm_name, arm in arms.items():
+        c = arm["teacher_vs_real"]
+        bw = _best(arm["coldstart_sweep"], "wr_agreement")
+        label = arm_name[:28]
+        print(f"  {label:<28}{str(bw['alpha']):>11}{bw['wr_agreement']:>10.4f}"
+              f"{bw['avg_pick_wr']:>13.4f}{bw['top1']:>8.4f}"
+              f"  [spearman={c['spearman']:.3f} pearson={c['pearson']:.3f} n={c['n']}]")
+        closed = (bw["wr_agreement"] - b["wr_agreement"]) / gap if gap > 1e-9 else float("nan")
+        print(f"    => closes {closed*100:.0f}% of oracle gap")
+
+    print(f"  {'real-data oracle':<28}{str(ow['alpha']):>11}{ow['wr_agreement']:>10.4f}"
+          f"{ow['avg_pick_wr']:>13.4f}{ow['top1']:>8.4f}")
     print(f"  human WR-agreement floor: {h['human_wr_agreement']:.4f}")
-    print(f"  => LLM closes {closed*100:.0f}% of the oracle gap on WR-agreement "
-          f"(oracle - baseline = {gap:+.4f})")
+    print(f"  oracle - baseline = {gap:+.4f}")
 
 
 def _spec(s: str) -> dict:

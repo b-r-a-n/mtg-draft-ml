@@ -202,14 +202,36 @@ def build_teacher_ratings(
     return ratings
 
 
+class CachedTeacher:
+    """Cache-only teacher: never calls an LLM; raises if any card is missing from the disk cache.
+
+    Used when a ratings cache (``data/teacher_cache/<id>/<SET>.json``) is already fully populated by
+    an external process and we want to consume it without holding an API key. Because
+    ``build_teacher_ratings`` only calls ``teacher.rate`` for cards MISSING from the cache, a fully
+    pre-populated cache means ``rate`` is never invoked.
+    """
+
+    def __init__(self, id_: str):
+        self.id = id_
+
+    def rate(self, briefs: list[dict]) -> list[float]:
+        missing = [b.get("name", "?") for b in briefs]
+        raise RuntimeError(
+            f"cache-only teacher: card missing from cache — {missing}"
+        )
+
+
 def get_teacher(name: str) -> Teacher:
-    """Resolve a teacher by name: 'heuristic' or 'anthropic[:model]'."""
+    """Resolve a teacher by name: 'heuristic', 'anthropic[:model]', or 'cached:<id>'."""
     if name == "heuristic":
         return HeuristicTeacher()
     if name == "anthropic" or name.startswith("anthropic:"):
         model = name.split(":", 1)[1] if ":" in name else MODEL
         return AnthropicTeacher(model=model)
-    raise ValueError(f"unknown teacher: {name!r} (use 'heuristic' or 'anthropic[:model]')")
+    if name.startswith("cached:"):
+        id_ = name.split(":", 1)[1]
+        return CachedTeacher(id_)
+    raise ValueError(f"unknown teacher: {name!r} (use 'heuristic', 'anthropic[:model]', or 'cached:<id>')")
 
 
 def main(argv=None):  # pragma: no cover - thin CLI

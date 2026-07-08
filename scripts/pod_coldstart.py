@@ -9,8 +9,12 @@ Run the heuristic (free, offline) teacher first to smoke-test the whole pipeline
 real Claude teacher:
     uv run python scripts/pod_coldstart.py --teacher heuristic
     uv run python scripts/pod_coldstart.py --teacher anthropic   # needs ANTHROPIC_API_KEY + [distill]
+
+Pass multiple teachers as a comma-separated list to evaluate them on the SAME trained model:
+    uv run python scripts/pod_coldstart.py --teacher heuristic,cached:agent-claude --seed 0
 """
 import argparse
+import pathlib
 
 from mtg_draft_ml.distill.coldstart import run_coldstart
 from mtg_draft_ml.distill.teacher import build_teacher_ratings, get_teacher
@@ -30,25 +34,46 @@ def spec(s):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--teacher", default="heuristic", help="'heuristic' or 'anthropic[:model]'")
+    ap.add_argument("--teacher", default="heuristic",
+                    help="Teacher spec or comma-separated list, e.g. 'heuristic,cached:agent-claude'")
     ap.add_argument("--epochs", type=int, default=10)
     ap.add_argument("--device", default="auto")
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--out", default=None,
+                    help="Output JSON path (default: data/coldstart_<teacher-ids>_seed<seed>.json)")
     a = ap.parse_args()
 
+    teacher_names = [t.strip() for t in a.teacher.split(",")]
     hold = spec(HOLDOUT)
-    # 1. Build the teacher ratings for the held-out set (cached on disk; cheap to re-run).
-    ratings_out = f"data/teacher_cache/{HOLDOUT}.{a.teacher.replace(':', '_')}.ratings.json"
-    build_teacher_ratings(hold["manifest"], hold["scryfall"], get_teacher(a.teacher),
-                          out_path=ratings_out, set_code=HOLDOUT)
 
-    # 2. Train + compare baseline / LLM cold-start / real-data oracle.
+    # 1. Build a teacher ratings file for the held-out set per teacher (cached; cheap to re-run).
+    ratings_paths: list[str] = []
+    for tname in teacher_names:
+        teacher = get_teacher(tname)
+        ratings_out = f"data/teacher_cache/{HOLDOUT}.{tname.replace(':', '_')}.ratings.json"
+        pathlib.Path(ratings_out).parent.mkdir(parents=True, exist_ok=True)
+        build_teacher_ratings(hold["manifest"], hold["scryfall"], teacher,
+                              out_path=ratings_out, set_code=HOLDOUT)
+        ratings_paths.append(ratings_out)
+
+    # Resolve output path.
+    if a.out is None:
+        ids = "_".join(t.replace(":", "_") for t in teacher_names)
+        out_json = f"data/coldstart_{ids}_seed{a.seed}.json"
+    else:
+        out_json = a.out
+
+    # 2. Train + compare baseline / teacher arm(s) / real-data oracle.
+    #    Pass a single str for single-teacher (backward compat) or a list for multi-teacher.
+    coldstart_arg = ratings_paths[0] if len(ratings_paths) == 1 else ratings_paths
+
     run_coldstart(
         [spec(s) for s in TRAIN],
         {"parquet": hold["parquet"], "manifest": hold["manifest"], "scryfall": hold["scryfall"]},
-        coldstart_ratings=ratings_out, holdout_ratings=hold["ratings"],
+        coldstart_ratings=coldstart_arg, holdout_ratings=hold["ratings"],
         embedder="all-MiniLM-L6-v2", pool="set_transformer",
-        epochs=a.epochs, device=a.device, seed=0,
-        out_json=f"data/coldstart_{HOLDOUT}_{a.teacher.replace(':', '_')}.json",
+        epochs=a.epochs, device=a.device, seed=a.seed,
+        out_json=out_json,
     )
 
 
